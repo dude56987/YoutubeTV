@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.example"
-version="2.0.1"
-name="Example Kodi Video Plugin"
-provider-name="Roman_V_M">
+<addon id="plugin.video.youtubetv"
+version="0.0.1"
+name="youtubeTV"
+provider-name="Carl J Smith">
 <requires>
   <import addon="xbmc.python" version="2.24.0"/>
+  <import addon="xbmc.addon" />
 </requires>
 <extension point="xbmc.python.pluginsource" library="main.py">
   <provides>video</provides>
 </extension>
 <extension point="xbmc.addon.metadata">
-  <summary lang="en">Example Kodi Video Plugin</summary>
-  <description lang="en">An example video plugin for Kodi mediacenter.</description>
-  <disclaimer lang="en">Free sample videos are provided by www.vidsplay.com.</disclaimer>
+  <summary lang="en">YoutubeTV</summary>
+  <description lang="en">A media plugin that allows you to view youtube channels.</description>
+  <disclaimer lang="en">This plugin is not affiliated with Youtube.</disclaimer>
 </extension>
 </addon>
