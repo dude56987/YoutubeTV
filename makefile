@@ -8,10 +8,8 @@ build: *.py *.md *.xml *.png resources/
 	# output the addon into a zipfile so it can be installed
 	zip -r -9 YoutubeTV.zip plugin.video.youtubetv/ 
 install: build
+	# copy the plugin into the current kodi config
 	cp -rv plugin.video.youtubetv ~/.kodi/addons/
-	# copy the test chanels into the plugin
-	mkdir -p ~/.kodi/userdata/addon_data/plugin.video.youtubetv/
-	cp channels ~/.kodi/userdata/addon_data/plugin.video.youtubetv/
 log:
 	less ~/.kodi/temp/kodi.log
 debug:

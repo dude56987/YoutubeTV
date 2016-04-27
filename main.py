@@ -68,15 +68,13 @@ class YoutubeTV():
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
 		self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
-		debug.add('cache : '+str(self.cache))
-		debug.add('timer : '+str(self.timer))
-		debug.add('channels : '+str(self.channels))
 		# update the channels
 		for channel in self.channels:
 			# if channel has no values
 			if channel not in self.cache.keys():
 				# create an array to sit in it
 				self.cache[channel]=[]	
+				#update the channel videos
 				self.getUserVideos(channel)
 	def saveFile(self,fileName,content):
 		# open the file to write
@@ -129,15 +127,12 @@ class YoutubeTV():
 		stored using pythons pickle functionality.'''
 		# open the pickled settings using xbmcs settings api
 		configObject=addonObject.getSetting(config)
-		debug.add('configObject for config load value',configObject)
 		#configObject=xbmcplugin.getSettings(_handle,config)
 		#configObject=self.loadFile(config)
 		if bool(configObject):
-			debug.add('loadConfig NOT PICKLED',pickle.loads(configObject))
 			# if config exists load up the config into channels
 			return pickle.loads(configObject)
 		else:
-			debug.add('no config was loaded, a blank was substuted')
 			if blankType=='array':
 				# otherwise create a blank array
 				return []
@@ -152,6 +147,9 @@ class YoutubeTV():
 		if channelUsername not in self.channels:
 			# add username to channels
 			self.channels.append(channelUsername)
+			self.cache[channelUsername]=[]
+			# also update the things in the channel
+			self.getUserVideos(channelUsername)
 		else:
 			# end execution since it would be a dupe
 			return
@@ -173,6 +171,11 @@ class YoutubeTV():
 			# update videos if videos were updated more than an hour ago
 			if self.timer[userName]<datetime.datetime.now():
 				# if the timer is over an hour old everything needs updated
+				#############
+				# update the timer to only update one hour from now
+				self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
+				# save timer changes
+				self.saveConfig('timer',self.timer)
 				return True
 			else:
 				# the timer has been reset within the last hour
@@ -180,6 +183,11 @@ class YoutubeTV():
 		else:
 			# the username has not time logged for last update
 			# this means no cache exists, and all videos need updated
+			#############
+			# update the timer to only update one hour from now
+			self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
+			# save timer changes
+			self.saveConfig('timer',self.timer)
 			return True
 	def refreshCache(self):
 		# get list of channels to update cache
@@ -189,13 +197,8 @@ class YoutubeTV():
 	def getUserVideos(self,userName):
 		debug.add('getting user videos for username',userName)
 		# check the timer on the username
-		if self.checkTimer(userName):
-			# reset the timer and refresh the program list
-			self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
-			# save changes to timer to config file
-			self.saveConfig('timer',self.timer)
-		else:
-			# end the program and use the cached version of the video list
+		if self.checkTimer(userName) != True:
+			# if the timer is false then time is not up and use the cached version
 			return self.cache[userName]
 		# get the youtube users webpage
 		webpageText=urllib.urlopen("https://www.youtube.com/user/"+str(userName)+"/videos")
@@ -226,7 +229,8 @@ class YoutubeTV():
 				# add the url of each video in the cache already
 				# to the videoList array for checking
 				videoList.append(videoDict['video'])
-			# check if the video already exists in the video cache
+			# check if the video already exists in the video cache by
+			# referencing it against the previously create videoList
 			if video not in videoList:
 				# begin building dict to add to the category array
 				temp={}
@@ -255,8 +259,10 @@ class YoutubeTV():
 #addonObject=xbmcaddon.Addon()
 # Get the plugin url in plugin:// notation.
 _url = sys.argv[0]
+debug.add('sys.argv is',sys.argv)
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
+debug.add('plugin handle is',_handle)
 # load the youtube videos on that channel from
 #addonObject=xbmcaddon.Addon(str(_handle))
 #addonObject=xbmcaddon.Addon(str('plugin.video.youtubetv'))
@@ -354,6 +360,17 @@ def list_categories():
 	debug.add('list_categories categories',categories)
 	# Create a list for our items.
 	listing = []
+	# create a add channel button in the channels view
+	#back=[{'video':'plugin://plugin.video.youtube/?action=addChannel','genre':'main','name':'..','thumb':'main'}]
+	#addChannelPath=_url+'?action=addChannel'
+	#list_item = xbmcgui.ListItem(label='Add Channel',path=addChannelPath)
+	#list_item.setArt({'thumb': 'addChannel','icon': 'addChannel','fanart':'addChannel'})
+	#list_item.setInfo('video', {'title': 'Add Channel', 'genre': 'Add Channel'})
+	#is_folder = False
+	#listing.append(('addChannel', list_item, is_folder))
+	#list_item.setProperty('IsPlayable', 'true')
+	#listing.append(('addChannel', list_item, False))
+	listing.append(createButton(action='addChannel',title='Add Channel',thumb='default',icon='default',fanart='default'))
 	# Iterate through categories
 	for category in categories:
 		# if a category has nothing in it then no category will be listed in the interface
@@ -388,7 +405,17 @@ def list_categories():
 	xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
 	# Finish creating a virtual folder.
 	xbmcplugin.endOfDirectory(_handle)
-
+def createButton(action='',title='default',thumb='default',icon='default',fanart='default'):
+	'''Create a list item to be created that is used as a menu button'''
+	debug.add('creating button')
+	url=(_url+'?action='+action)
+	list_item = xbmcgui.ListItem(label=title)
+	list_item.setInfo('video', {'title':title , 'genre':'menu' })
+	list_item.setArt({'thumb': thumb, 'icon': icon, 'fanart': fanart})
+	list_item.setProperty('IsPlayable', 'true')
+	is_folder = True
+	listingItem=(url, list_item, is_folder)
+	return listingItem
 
 def list_videos(category):
 	"""
@@ -398,8 +425,23 @@ def list_videos(category):
 	"""
 	# Get the list of videos in the category.
 	videos = get_videos(category)
+	#back=[{'video':(_url+'?action=addChannel'),'genre':'menu','name':'..','thumb':'..'}]
+
+	#list_item = xbmcgui.ListItem(label='lol')
+	#list_item.setInfo('video', {'title': video['name'], 'genre': video['genre']})
+	#list_item.setArt({'thumb': video['thumb'], 'icon': video['thumb'], 'fanart': video['thumb']})
+	#list_item.setProperty('IsPlayable', 'true')
+	#is_folder = False
+	#listing.append((url, list_item, is_folder))
+
+	# add the back button to the video list
+	#videos=back+videos
+	debug.add('videos object for list_videos',videos)
+	#plugin://plugin.video.youtube/
 	# Create a list for our items.
 	listing = []
+	# create the back button to return to the main menu
+	listing.append(createButton(action='main',title='..',thumb='default',icon='default',fanart='default'))
 	# Iterate through videos.
 	for video in videos:
 		# Create a list item with a text label and a thumbnail image.
@@ -435,14 +477,20 @@ def play_video(path):
 
 	:param path: str
 	"""
+	# if the previous two if statements dont hit then the path is a 
+	# video path so modify the string and play it with the youtube plugin
+	###############
+	# the path to let videos be played by the youtube plugin
+	youtubePath='plugin://plugin.video.youtube/?action=play_video&videoid='
 	debug.add('play_video path',path)
+	# remove the full webaddress to make youtube plugin work correctly
+	path=path.replace('https://youtube.com/watch?v=','')
+	# add youtube path to path to make videos play with the kodi youtube plugin
+	path=youtubePath+path
 	# Create a playable item with a path to play.
 	play_item = xbmcgui.ListItem(path=path)
 	# Pass the item to the Kodi player.
 	xbmcplugin.setResolvedUrl(_handle, True, listitem=play_item)
-	# play the video with the youtube plugin
-	#xbmcplugin.setResolvedUrl('plugin.video.youtube', True, listitem=play_item)
-
 
 def router(paramstring):
 	"""
@@ -454,23 +502,40 @@ def router(paramstring):
 	# Parse a URL-encoded paramstring to the dictionary of
 	# {<parameter>: <value>} elements
 	params = dict(parse_qsl(paramstring))
+	debug.add('parameters for router',params)
 	# Check the parameters passed to the plugin
 	if params:
 		if params['action'] == 'listing':
+			debug.add('action=listing was activated in router')
 			# Display the list of videos in a provided category.
 			list_videos(params['category'])
 		elif params['action'] == 'play':
+			debug.add('action=play was activated in router')
 			# Play a video from a provided URL.
 			play_video(params['video'])
-	#elif params['action'] == 'add':
-		
+		elif params['action'] == 'main':
+			debug.add('action=main was activated in router')
+			# the item is a return to main menu button
+			list_categories()
+		elif params['action'] == 'addChannel':
+			debug.add('addChannel invoked, creating dialog')
+			# the item is a button to display a input dialog
+			# that will add a new channel to the addon
+			dialogObject=xbmcgui.Dialog()
+			returnString=dialogObject.input('Type a youtube username')
+			debug.add('input return string',returnString)
+			# check for blank strings and ignore them
+			if len(returnString) > 0:
+				session.addChannel(returnString)
+			list_categories()
 	else:
+		debug.add('listing categories...')
 		# If the plugin is called from Kodi UI without any parameters,
 		# display the list of video categories
 		list_categories()
 
-
 if __name__ == '__main__':
 	# Call the router function and pass the plugin call parameters to it.
 	# We use string slicing to trim the leading '?' from the plugin call paramstring
+	debug.add('sys.argv[2][1:]',sys.argv[2][1:])
 	router(sys.argv[2][1:])

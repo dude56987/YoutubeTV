@@ -6,6 +6,7 @@ provider-name="Carl J Smith">
 <requires>
   <import addon="xbmc.python" version="2.24.0"/>
   <import addon="xbmc.addon" />
+  <import addon="plugin.video.youtube" />
 </requires>
 <extension point="xbmc.python.pluginsource" library="main.py">
   <provides>video</provides>
