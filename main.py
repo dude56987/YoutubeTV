@@ -6,6 +6,7 @@
 ###################
 import sys
 from urlparse import parse_qsl
+import xbmc
 import xbmcgui
 import xbmcplugin
 import xbmcaddon
@@ -67,7 +68,10 @@ class YoutubeTV():
 		self.timer=self.loadConfig('timer','dict')
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
-		self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
+		# load the channels cache
+		self.channelCache=self.loadConfig('channelCache','dict')
+		debug.add('channel cache',self.channelCache)
+		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
 		# update the channels
 		for channel in self.channels:
 			# if channel has no values
@@ -194,19 +198,112 @@ class YoutubeTV():
 		for channel in self.channels:
 			# refresh all videos in channel
 			self.getUserVideos(channel)
-	def getUserVideos(self,userName):
-		debug.add('getting user videos for username',userName)
-		# check the timer on the username
-		if self.checkTimer(userName) != True:
-			# if the timer is false then time is not up and use the cached version
-			return self.cache[userName]
+	def searchChannel(self,searchString):
+		# searches on youtube can be placed with the below string
+		# add your search terms at the end of the string
+		#"https://www.youtube.com/results?search_query="
+		searchResults=self.grabWebpage("https://www.youtube.com/results?search_query="+searchString)
+		# to do next page you can add page=2 to the request
+		
+		# users can be found by scanning the search results for
+		#'href="/user/'userName'"'
+		searchResults=searchResults.split('"')	
+		temp=[]
+		for link in searchResults:
+			# if the link is a link to a channel
+			if '/user/' in link:
+				# remove the user prefix to leave only the username
+				link = link.replace('/user/','')
+				# do not add duplicate entries found in the search
+				if link not in temp:
+					# add the link 
+					temp.append(link)
+		# search results is now a array of usernames
+		searchResults=temp
+		# we can take the usernames and use them to grab the user channel information
+		# listing for creating directory
+		listing=[]
+		# create back button in the search results
+		listing.append(createButton(action='main',title='..',thumb='default',icon='default',fanart='default'))
+		for channel in searchResults:
+			# if the channel info already exists use cached data
+			if channel in self.channelCache.keys():
+				title=self.channelCache[channel]['title']
+				icon=self.channelCache[channel]['icon']
+			else:
+				# if channel is not in the cache then grab info from the website
+				##############
+				# user channel information can be found by downloading the
+				# user channel page with
+				#"https://youtube.com/user/"userName
+				channelPage=self.grabWebpage("https://www.youtube.com/user/"+channel)
+				# split the page based on tag opening
+				channelPage=channelPage.split("<")
+				for tag in channelPage:
+					# the channels metadata is stored in a image tag for the users
+					# profile picture, so search for
+					#'class="channel-header-profile-image"'
+					if 'class="channel-header-profile-image"' in tag:
+						# inside this string you will have two important variables
+						# - first src="" will have the icon you should use for the channel
+						# - second title="" will have the human readable channel title
+						# you should store these things in the cache somehow to use them 
+						# when rendering the channels view
+						debug.banner()
+						debug.add('found tag string',tag)
+						debug.add('channel username',channel)
+						# grab text in src attribute between parathenesis
+						icon=tag.split('src="')
+						icon=icon[1].split('"')
+						icon=icon[0]
+						debug.add('Icon Path',icon)
+						# grab text in title attribute for channel title
+						title=tag.split('title="')
+						title=title[1].split('"')
+						title=title[0]
+						debug.add('Title',title)
+						# add channel information to the channel cache
+						self.channelCache[channel]={}
+						# add title and icon
+						self.channelCache[channel]['title']=title
+						self.channelCache[channel]['icon']=icon
+			# create a button to add the channel in the results	
+			temp=createButton(action=('addChannel&value='+channel),\
+					title=title,\
+					thumb=icon,\
+					icon=icon,\
+					fanart=icon)
+			listing.append(temp)
+		# save the channels into the channel cache
+		self.saveConfig('channelCache',self.channelCache)
+		xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
+		# Add a sort method for the virtual folder items (alphabetically, ignore articles)
+		#xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
+		# change the default view to thumbnails
+		xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
+		# Finish creating a virtual folder.
+		xbmcplugin.endOfDirectory(_handle)
+		# the banner image seems to use a dynamically generated css link so I
+		# have no fucking idea how I would grab that to use in kodi
+	def grabWebpage(self,url):
 		# get the youtube users webpage
-		webpageText=urllib.urlopen("https://www.youtube.com/user/"+str(userName)+"/videos")
+		webpageText=urllib.urlopen(url)
 		temp=''
 		for line in webpageText:
 			# mash everything into a string because they use code obscification
 			# also strip endlines to avoid garbage
 			temp+=(line.strip())
+		return temp
+	def getUserVideos(self,userName):
+		debug.add('getting user videos for username',userName)
+		# create the progress bar
+		progressDialog=xbmcgui.DialogProgress()
+		# check the timer on the username
+		if self.checkTimer(userName) != True:
+			# if the timer is false then time is not up and use the cached version
+			return self.cache[userName]
+		# get the youtube users webpage
+		temp=self.grabWebpage("https://www.youtube.com/user/"+str(userName)+"/videos")
 		# split page based on parathensis since we are looking for video play strings 
 		webpageText=temp.split('"')
 		# create an array to hold the video watch strings
@@ -220,8 +317,15 @@ class YoutubeTV():
 				if temp not in videos:
 					# add video if it does not exist in the file already
 					videos.append(temp)
+		# start the progress dialog
+		progressDialog.create(('Adding Videos to '+userName),'Processing...')
+		progressTotal=float(len(videos))
+		progressCurrent=0.0
 		# generate the data for drawing videos in kodi menu
 		for video in videos:
+			# update the progress bar on screen and increment the counter
+			progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
+			progressCurrent+=1
 			debug.add('updating video info for link',video)
 			# build a list of existing video urls in cache to check aginst
 			videoList=[] 
@@ -254,6 +358,19 @@ class YoutubeTV():
 		self.saveConfig('cache',self.cache)
 		# return the cached videos
 		return self.cache[userName]
+################################################################################
+def createButton(action='',title='default',thumb='default',icon='default',fanart='default'):
+	'''Create a list item to be created that is used as a menu button'''
+	debug.add('creating button')
+	url=(_url+'?action='+action)
+	list_item = xbmcgui.ListItem(label=title)
+	list_item.setInfo('video', {'title':title , 'genre':'menu' })
+	list_item.setArt({'thumb': thumb, 'icon': icon, 'fanart': fanart})
+	list_item.setProperty('IsPlayable', 'true')
+	is_folder = True
+	listingItem=(url, list_item, is_folder)
+	return listingItem
+################################################################################
 # create addon object
 #addonObject=xbmcaddon.Addon(id="plugin.video.youtubetv")
 #addonObject=xbmcaddon.Addon()
@@ -268,7 +385,6 @@ debug.add('plugin handle is',_handle)
 #addonObject=xbmcaddon.Addon(str('plugin.video.youtubetv'))
 addonObject=xbmcaddon.Addon(id=str('plugin.video.youtubetv'))
 session=YoutubeTV()
-
 #debug.add(os.listdir('.'))#DEBUG
 
 #fileObject=open('~/.kodi/userdata/addon_data/plugin.video.youtubetv/channels','r')
@@ -361,35 +477,26 @@ def list_categories():
 	# Create a list for our items.
 	listing = []
 	# create a add channel button in the channels view
-	#back=[{'video':'plugin://plugin.video.youtube/?action=addChannel','genre':'main','name':'..','thumb':'main'}]
-	#addChannelPath=_url+'?action=addChannel'
-	#list_item = xbmcgui.ListItem(label='Add Channel',path=addChannelPath)
-	#list_item.setArt({'thumb': 'addChannel','icon': 'addChannel','fanart':'addChannel'})
-	#list_item.setInfo('video', {'title': 'Add Channel', 'genre': 'Add Channel'})
-	#is_folder = False
-	#listing.append(('addChannel', list_item, is_folder))
-	#list_item.setProperty('IsPlayable', 'true')
-	#listing.append(('addChannel', list_item, False))
-	listing.append(createButton(action='addChannel',title='Add Channel',thumb='default',icon='default',fanart='default'))
+	listing.append(createButton(action='searchChannel',title='Search Channels',thumb='default',icon='default',fanart='default'))
 	# Iterate through categories
 	for category in categories:
 		# if a category has nothing in it then no category will be listed in the interface
 		if len(category)==0:
 			return
 		# Create a list item with a text label and a thumbnail image.
-		list_item = xbmcgui.ListItem(label=category)
+		list_item = xbmcgui.ListItem(label=session.channelCache[category]['title'])
 		# Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
 		# Here we use the same image for all items for simplicity's sake.
 		# In a real-life plugin you need to set each image accordingly.
-		list_item.setArt({'thumb': VIDEOS[category][0]['thumb'],
-						  'icon': VIDEOS[category][0]['thumb'],
-						  'fanart': VIDEOS[category][0]['thumb']})
+		list_item.setArt({'thumb': session.channelCache[category]['icon'],\
+				  'icon': session.channelCache[category]['icon'],\
+				  'fanart': VIDEOS[category][0]['thumb']})
 		# Set additional info for the list item.
 		# Here we use a category name for both properties for for simplicity's sake.
 		# setInfo allows to set various information for an item.
 		# For available properties see the following link:
 		# http://mirrors.xbmc.org/docs/python-docs/15.x-isengard/xbmcgui.html#ListItem-setInfo
-		list_item.setInfo('video', {'title': category, 'genre': category})
+		list_item.setInfo('video', {'title': session.channelCache[category]['title'], 'genre': category})
 		# Create a URL for the plugin recursive callback.
 		# Example: plugin://plugin.video.example/?action=listing&category=Animals
 		url = '{0}?action=listing&category={1}'.format(_url, category)
@@ -402,20 +509,11 @@ def list_categories():
 	# instead of adding one by ove via addDirectoryItem.
 	xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
 	# Add a sort method for the virtual folder items (alphabetically, ignore articles)
-	xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
+	#xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
+	# change the default view to thumbnails
+	xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
 	# Finish creating a virtual folder.
 	xbmcplugin.endOfDirectory(_handle)
-def createButton(action='',title='default',thumb='default',icon='default',fanart='default'):
-	'''Create a list item to be created that is used as a menu button'''
-	debug.add('creating button')
-	url=(_url+'?action='+action)
-	list_item = xbmcgui.ListItem(label=title)
-	list_item.setInfo('video', {'title':title , 'genre':'menu' })
-	list_item.setArt({'thumb': thumb, 'icon': icon, 'fanart': fanart})
-	list_item.setProperty('IsPlayable', 'true')
-	is_folder = True
-	listingItem=(url, list_item, is_folder)
-	return listingItem
 
 def list_videos(category):
 	"""
@@ -468,7 +566,9 @@ def list_videos(category):
 	# instead of adding one by ove via addDirectoryItem.
 	xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
 	# Add a sort method for the virtual folder items (alphabetically, ignore articles)
-	xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
+	#xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
+	# change the default view to thumbnails
+	xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
 	# Finish creating a virtual folder.
 	xbmcplugin.endOfDirectory(_handle)
 def play_video(path):
@@ -518,6 +618,11 @@ def router(paramstring):
 			# the item is a return to main menu button
 			list_categories()
 		elif params['action'] == 'addChannel':
+			# check for blank strings and ignore them
+			if len(params['value']) > 0:
+				session.addChannel(params['value'])
+			list_categories()
+		elif params['action'] == 'searchChannel':
 			debug.add('addChannel invoked, creating dialog')
 			# the item is a button to display a input dialog
 			# that will add a new channel to the addon
@@ -526,8 +631,9 @@ def router(paramstring):
 			debug.add('input return string',returnString)
 			# check for blank strings and ignore them
 			if len(returnString) > 0:
-				session.addChannel(returnString)
-			list_categories()
+				session.searchChannel(returnString)
+			else:
+				list_categories()
 	else:
 		debug.add('listing categories...')
 		# If the plugin is called from Kodi UI without any parameters,
