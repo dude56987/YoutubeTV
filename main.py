@@ -64,6 +64,7 @@ class YoutubeTV():
 		'''This object loads up the youtubeTV session for cache functionality and automated work.'''
 		# create the cache for this session
 		self.cache=self.loadConfig('cache','dict')
+		debug.add('main cache',self.cache)
 		# cache timer
 		self.timer=self.loadConfig('timer','dict')
 		# load the channels config
@@ -223,13 +224,19 @@ class YoutubeTV():
 		# we can take the usernames and use them to grab the user channel information
 		# listing for creating directory
 		listing=[]
-		# create back button in the search results
-		listing.append(createButton(action='main',title='..',thumb='default',icon='default',fanart='default'))
+		# create the progress bar
+		progressDialog=xbmcgui.DialogProgress()
+		progressDialog.create(('Searching Channels for '+searchString),'Processing...')
+		progressTotal=float(len(searchResults))
+		progressCurrent=0.0
 		for channel in searchResults:
+			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
+			progressCurrent+=1
 			# if the channel info already exists use cached data
 			if channel in self.channelCache.keys():
 				title=self.channelCache[channel]['title']
 				icon=self.channelCache[channel]['icon']
+				fanArt=self.channelCache[channel]['fanArt']
 			else:
 				# if channel is not in the cache then grab info from the website
 				##############
@@ -237,6 +244,12 @@ class YoutubeTV():
 				# user channel page with
 				#"https://youtube.com/user/"userName
 				channelPage=self.grabWebpage("https://www.youtube.com/user/"+channel)
+				# jerk out the banner image from the downloaded user webpage
+				temp=channelPage.split('.hd-banner-image {background-image: url(//')
+				temp=temp[1]
+				temp=temp.split(');')
+				# append https to the picture so it will work
+				fanArt="https://"+temp[0]
 				# split the page based on tag opening
 				channelPage=channelPage.split("<")
 				for tag in channelPage:
@@ -261,18 +274,21 @@ class YoutubeTV():
 						title=tag.split('title="')
 						title=title[1].split('"')
 						title=title[0]
+						# clean html entities from title
+						title=title.replace('&amp;','&')
 						debug.add('Title',title)
 						# add channel information to the channel cache
 						self.channelCache[channel]={}
 						# add title and icon
 						self.channelCache[channel]['title']=title
 						self.channelCache[channel]['icon']=icon
+						self.channelCache[channel]['fanArt']=fanArt
 			# create a button to add the channel in the results	
 			temp=createButton(action=('addChannel&value='+channel),\
 					title=title,\
 					thumb=icon,\
 					icon=icon,\
-					fanart=icon)
+					fanart=fanArt)
 			listing.append(temp)
 		# save the channels into the channel cache
 		self.saveConfig('channelCache',self.channelCache)
@@ -294,6 +310,51 @@ class YoutubeTV():
 			# also strip endlines to avoid garbage
 			temp+=(line.strip())
 		return temp
+	def addVideo(self,channel,newVideo):
+		'''channel is a string, item is a dict'''
+		debug.banner()
+		debug.add('addVideo called')
+		debug.add('for channel',channel)
+		debug.add('for video',newVideo)
+		# create left and right variables to paste the variable
+		# in the correct location
+		left=[]
+		right=[]
+		# found variable tells the loop that the location has been found
+		# so place all the rest of the variables on the right
+		found=False
+		if len(self.cache[channel])<1:
+			# if the cache has no existing videos then add the video
+			self.cache[channel].append(newVideo)
+			# then exit the function
+			return
+		# search for placement of video in existing cached videos
+		for oldVideo in self.cache[channel]:
+			debug.banner()
+			debug.add('oldVideo is',oldVideo)
+			debug.add('newVideo is',newVideo)
+			# for each video in the channels cache
+			if found:
+				debug.add('placement already found, adding videos to the right')
+				# if video placement has already been found
+				# add remaining videos to the right
+				right.append(oldVideo)
+			else:
+				# if video placement has not yet been found
+				if oldVideo['foundTime'] < newVideo['foundTime']:
+					debug.add('newVideo is newer than oldvideo')
+					# if newVideo is newer than oldVideo
+					left.append(newVideo)
+					right.append(oldVideo)
+					# then set the value of found to true
+					found=True
+				else:
+					debug.add('newVideo is older than oldvideo')
+					#if newVideo is older than oldVideo
+					left.append(oldVideo)
+		# add the two arrays together to get the new list
+		# that has the video correctly placed inside
+		self.cache[channel]=list(left+right)
 	def getUserVideos(self,userName):
 		debug.add('getting user videos for username',userName)
 		# create the progress bar
@@ -321,6 +382,8 @@ class YoutubeTV():
 		progressDialog.create(('Adding Videos to '+userName),'Processing...')
 		progressTotal=float(len(videos))
 		progressCurrent=0.0
+		# reverse the order of videos in order to give correct timestamps
+		videos.reverse()
 		# generate the data for drawing videos in kodi menu
 		for video in videos:
 			# update the progress bar on screen and increment the counter
@@ -352,8 +415,11 @@ class YoutubeTV():
 				temp['thumb']=thumbnail
 				# set the genre to youtube
 				temp['genre']='youtube'
+				# add a time to the element for the purposes of sorting
+				temp['foundTime']=datetime.datetime.now()
 				# set user data in the cache
-				self.cache[userName].append(temp)
+				self.addVideo(userName,temp)
+				#self.cache[userName].append(temp)
 		# update the settings in the saved cache after the loops
 		self.saveConfig('cache',self.cache)
 		# return the cached videos
@@ -476,7 +542,7 @@ def list_categories():
 	debug.add('list_categories categories',categories)
 	# Create a list for our items.
 	listing = []
-	# create a add channel button in the channels view
+	# create a search channel button in the channels view
 	listing.append(createButton(action='searchChannel',title='Search Channels',thumb='default',icon='default',fanart='default'))
 	# Iterate through categories
 	for category in categories:
@@ -538,8 +604,6 @@ def list_videos(category):
 	#plugin://plugin.video.youtube/
 	# Create a list for our items.
 	listing = []
-	# create the back button to return to the main menu
-	listing.append(createButton(action='main',title='..',thumb='default',icon='default',fanart='default'))
 	# Iterate through videos.
 	for video in videos:
 		# Create a list item with a text label and a thumbnail image.
