@@ -26,8 +26,10 @@ debug:
 	#less ~/.kodi/userdata/addon_data/plugin.video.youtubetv/debug
 clean:
 	# clean up build directories
-	rm YoutubeTV.zip
-	rm -rv plugin.video.youtubetv
+	rm YoutubeTV.zip || echo "No plugin package to remove."
+	rm -rv plugin.video.youtubetv || echo "No build directory to remove."
+	# also try to remove reports that exist
+	rm -rv report || echo "No Reports to remove."
 reset:
 	# reset the settings to default
 	rm -rv ~/.kodi/userdata/addon_data/plugin.video.youtubetv
