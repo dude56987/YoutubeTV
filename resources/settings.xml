@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<settings>
+	<category label='internals'>
+		<setting visible='false' id='cache' type='text' default='' label='cache'/>
+		<setting visible='false' id='timer' type='text' default='' label='timer'/>
+		<setting visible='false' id='channels' type='text' default='' label='channels'/>
+		<setting visible='false' id='channelCache' type='text' default='' label='channelCache'/>
+	</category>
+</settings>
