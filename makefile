@@ -12,6 +12,8 @@ build: *.py *.md *.xml *.png resources/
 	#chmod u+rwx -R plugin.video.youtubetv
 	# output the addon into a zipfile so it can be installed
 	zip -r -9 YoutubeTV.zip plugin.video.youtubetv/ 
+	# remove build directory
+	rm -rv plugin.video.youtubetv 
 install: build
 	# copy the plugin into the current kodi config
 	cp -rv plugin.video.youtubetv ~/.kodi/addons/
