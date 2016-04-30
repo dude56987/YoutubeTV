@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.youtubetv"
-version="0.0.1"
-name="youtubeTV"
-provider-name="Carl J Smith">
-<requires>
-  <import addon="xbmc.python" version="2.24.0"/>
-  <import addon="xbmc.addon" />
-  <import addon="plugin.video.youtube" />
-</requires>
-<extension point="xbmc.python.pluginsource" library="main.py">
-  <provides>video</provides>
-</extension>
-<extension point="xbmc.addon.metadata">
-  <summary lang="en">YoutubeTV</summary>
-  <description lang="en">A media plugin that allows you to view youtube channels.</description>
-  <disclaimer lang="en">This plugin is not affiliated with Youtube.</disclaimer>
-</extension>
+<addon id="plugin.video.youtubetv" version="0.0.1" name="YoutubeTV" provider-name="Carl J Smith">
+	<requires>
+		<import addon="xbmc.python" version="2.1.0"/>
+	</requires>
+	<extension point="xbmc.python.pluginsource" library="main.py">
+	<provides>video</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+	  <summary lang="en">YoutubeTV</summary>
+	  <description lang="en">A media plugin that allows you to view youtube channels.</description>
+	  <disclaimer lang="en">This plugin is not affiliated with Youtube.</disclaimer>
+	</extension>
 </addon>
