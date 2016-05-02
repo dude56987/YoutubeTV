@@ -16,7 +16,7 @@ build: *.py *.md *.xml *.png resources/
 	rm -rv plugin.video.youtubetv 
 install: build
 	# copy the plugin into the current kodi config
-	cp -rv plugin.video.youtubetv ~/.kodi/addons/
+	unzip -o YoutubeTV.zip -d ~/.kodi/addons/
 uninstall: reset
 	# remove the addon and the addon data
 	rm -rv ~/.kodi/addons/plugin.video.youtubetv
