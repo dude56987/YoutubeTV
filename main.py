@@ -346,14 +346,17 @@ class YoutubeTV():
 		'''channel is a string, item is a dict'''
 		# check for buttons that are not videos
 		if "branded-page-gutter-padding" in newVideo['video']:
+			# video is a button not a video dont add video
 			return
+		# Check for duplicates of existing videos
+		for videoObject in self.cache[channel]:
+			# check for duplicates
+			if newVideo['name'] == videoObject['name'] :
+				# duplicate found exit function
+				return
 		# sleep one second per video in order to give videos 
 		# diffrent timestamps
 		sleep(1)
-		debug.banner()
-		debug.add('addVideo called')
-		debug.add('for channel',channel)
-		debug.add('for video',newVideo)
 		# create left and right variables to paste the variable
 		# in the correct location
 		left=[]
