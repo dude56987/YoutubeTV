@@ -16,6 +16,7 @@ import os
 import subprocess
 import datetime
 import pickle
+from time import sleep
 ###################
 class masterDebug():
 	# master debug object for debugging plugin
@@ -58,20 +59,48 @@ class masterDebug():
 		#os.system('xterm -e bash -c \'echo "'+str(self.text)+'" | less\'')
 # create master debug object
 debug=masterDebug()
+# findText
+def findText(start,end,searchString):
+	'''
+	Grab text between start and end strings within the
+	searchString.
+	
+	return string
+	'''
+	debug.add('searchString',searchString)
+	# find the start index of the startstring
+	start=searchString.find(start)+len(start)
+	debug.add('start',start)
+	# middle cut
+	firstCut=searchString[start:]
+	debug.add('first cut',firstCut)
+	# find then end string index
+	end=firstCut.find(end)
+	debug.add('end',end)
+	# cut the end off
+	temp=firstCut[:end]
+	debug.add('final cut',temp)
+	# return the middle
+	return temp
+
+	#temp=searchString.split(start)
+	#temp=temp[1]
+	#temp=temp.split(end)
+	#temp=temp[0]
 # session class for youtubeTV session starting
 class YoutubeTV():
 	def __init__(self):
 		'''This object loads up the youtubeTV session for cache functionality and automated work.'''
 		# create the cache for this session
 		self.cache=self.loadConfig('cache','dict')
-		debug.add('main cache',self.cache)
+		#debug.add('main cache',self.cache)
 		# cache timer
 		self.timer=self.loadConfig('timer','dict')
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
 		# load the channels cache
 		self.channelCache=self.loadConfig('channelCache','dict')
-		debug.add('channel cache',self.channelCache)
+		#debug.add('channel cache',self.channelCache)
 		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
 		# update the channels
 		for channel in self.channels:
@@ -83,14 +112,14 @@ class YoutubeTV():
 				self.getUserVideos(channel)
 	def saveFile(self,fileName,content):
 		# open the file to write
-		fileObject=open(('~/.kodi/userdata/addon_data/plugin.video.youtubetv/'+fileName),'w')
+		fileObject=open(('~/.kodi/userdata/addon_data/'+_id+'/'+fileName),'w')
 		# write file content
 		fileObject.write(content)
 		# close the file
 		fileObject.close()
 	def loadFile(self,fileName):
 		# this is where all files related to the plugin will be stored
-		basePath=('~/.kodi/userdata/addon_data/plugin.video.youtubetv/')
+		basePath=('~/.kodi/userdata/addon_data/'+_id+'/')
 		# if the base config directory does not exist
 		if os.path.exists(basePath) != True:
 			# create the base config path 
@@ -245,11 +274,14 @@ class YoutubeTV():
 				#"https://youtube.com/user/"userName
 				channelPage=self.grabWebpage("https://www.youtube.com/user/"+channel)
 				# jerk out the banner image from the downloaded user webpage
-				temp=channelPage.split('.hd-banner-image {background-image: url(//')
-				temp=temp[1]
-				temp=temp.split(');')
-				# append https to the picture so it will work
-				fanArt="https://"+temp[0]
+				try:
+					temp=channelPage.split('.hd-banner-image {background-image: url(//')
+					temp=temp[1]
+					temp=temp.split(');')
+					# append https to the picture so it will work
+					fanArt="https://"+temp[0]
+				except:
+					fanArt='none'
 				# split the page based on tag opening
 				channelPage=channelPage.split("<")
 				for tag in channelPage:
@@ -312,6 +344,12 @@ class YoutubeTV():
 		return temp
 	def addVideo(self,channel,newVideo):
 		'''channel is a string, item is a dict'''
+		# check for buttons that are not videos
+		if "branded-page-gutter-padding" in newVideo['video']:
+			return
+		# sleep one second per video in order to give videos 
+		# diffrent timestamps
+		sleep(1)
 		debug.banner()
 		debug.add('addVideo called')
 		debug.add('for channel',channel)
@@ -352,6 +390,12 @@ class YoutubeTV():
 					debug.add('newVideo is older than oldvideo')
 					#if newVideo is older than oldVideo
 					left.append(oldVideo)
+		# if now proper placement was found for the video then place
+		# the video on at the end of the list of videos
+		if found==False:
+			right.append(newVideo)
+		debug.add('left array',left)
+		debug.add('right array',right)
 		# add the two arrays together to get the new list
 		# that has the video correctly placed inside
 		self.cache[channel]=list(left+right)
@@ -365,61 +409,116 @@ class YoutubeTV():
 			return self.cache[userName]
 		# get the youtube users webpage
 		temp=self.grabWebpage("https://www.youtube.com/user/"+str(userName)+"/videos")
-		# split page based on parathensis since we are looking for video play strings 
-		webpageText=temp.split('"')
 		# create an array to hold the video watch strings
 		videos=[]
-		# run though the split text array looking for watch strings in lines
-		for line in webpageText:
-			if '/watch?v=' in line:
-				# create real youtube url from found strings
-				temp='https://youtube.com'+str(line)
-				# avoid duplicate entries
-				if temp not in videos:
-					# add video if it does not exist in the file already
-					videos.append(temp)
-		# start the progress dialog
-		progressDialog.create(('Adding Videos to '+userName),'Processing...')
-		progressTotal=float(len(videos))
-		progressCurrent=0.0
-		# reverse the order of videos in order to give correct timestamps
-		videos.reverse()
-		# generate the data for drawing videos in kodi menu
-		for video in videos:
-			# update the progress bar on screen and increment the counter
-			progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
-			progressCurrent+=1
-			debug.add('updating video info for link',video)
-			# build a list of existing video urls in cache to check aginst
-			videoList=[] 
-			for videoDict in self.cache[userName]:
-				# add the url of each video in the cache already
-				# to the videoList array for checking
-				videoList.append(videoDict['video'])
-			# check if the video already exists in the video cache by
-			# referencing it against the previously create videoList
-			if video not in videoList:
+		downloadMethod='youtubetv'
+		#we have two different methods of grabing metadata
+		if downloadMethod=='youtubetv':
+			debug.add("download method is youtubetv")
+			# search the videos without youtube-dl
+			# search for the list of videos in the webpage
+			temp=findText('<ul id="channels-browse-content-grid','<button class="yt-lockup-dismissable"></div>',temp)
+			# start the progress dialog
+			progressDialog.create(('Processing Video for '+userName),'Processing...')
+			# there are 25 videos on each page so we dont need to process this
+			# we multuply it by two and run progress for adding the videos to 
+			# the cache as well since this is half the work
+			progressTotal=float(25*2)
+			progressCurrent=0.0
+			# split the list based on the video list items in the grid
+			for line in temp.split('<li class="channels-content-item'):
+				# now find the youtube video information
+				#findText(start,end,searchText)
+				video=findText('href="/watch?v=','"',line)
+				thumb=findText('src="','"',line)
+				title=findText('dir="ltr" title="','"',line)
 				# begin building dict to add to the category array
 				temp={}
 				# set the video url to the found url
 				temp['video']=video
-				# find the video title using youtube-dl
-				title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
-				title=title.communicate()[0].strip()
 				# set the title
 				temp['name']=title
-				# get the thumbnail url
-				thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
-				thumbnail=thumbnail.communicate()[0].strip()
 				# set the thumbnail
-				temp['thumb']=thumbnail
+				temp['thumb']=thumb
 				# set the genre to youtube
 				temp['genre']='youtube'
+				# update the progress bar on screen and increment the counter
+				progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
+				progressCurrent+=1
+				# add the found data to the videos array
+				videos.append(temp)
+			# reverse the order of videos in order to give correct timestamps
+			videos.reverse()
+			# create dialog for adding videos
+			progressDialog.create(('Adding video to '+userName),'Organizing...')
+			progressTotal=len(videos)
+			progressCurrent=0.0
+			# add found video information to the cache
+			for video in videos:
 				# add a time to the element for the purposes of sorting
-				temp['foundTime']=datetime.datetime.now()
+				# this must be done after the element order has been reversed
+				# in order for sorting to be properly managed
+				video['foundTime']=datetime.datetime.now()
+				# this is the second half of the video updates so the dialog keeps running
+				# update the progress bar on screen and increment the counter
+				progressDialog.update(int(100*(progressCurrent/progressTotal)),video['name'])
+				progressCurrent+=1
 				# set user data in the cache
-				self.addVideo(userName,temp)
-				#self.cache[userName].append(temp)
+				self.addVideo(userName,video)
+		elif downloadMethod=='youtube-dl':
+			debug.add("download method is youtube-dl")
+			# split page based on parathensis since we are looking for video play strings 
+			webpageText=temp.split('"')
+			# run though the split text array looking for watch strings in lines
+			for line in webpageText:
+				if '/watch?v=' in line:
+					# create real youtube url from found strings
+					temp='https://youtube.com'+str(line)
+					# avoid duplicate entries
+					if temp not in videos:
+						# add video if it does not exist in the file already
+						videos.append(temp)
+			# start the progress dialog
+			progressDialog.create(('Adding Videos to '+userName),'Processing...')
+			progressTotal=float(len(videos))
+			progressCurrent=0.0
+			# reverse the order of videos in order to give correct timestamps
+			videos.reverse()
+			# generate the data for drawing videos in kodi menu
+			for video in videos:
+				# update the progress bar on screen and increment the counter
+				progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
+				progressCurrent+=1
+				debug.add('updating video info for link',video)
+				# build a list of existing video urls in cache to check aginst
+				videoList=[] 
+				for videoDict in self.cache[userName]:
+					# add the url of each video in the cache already
+					# to the videoList array for checking
+					videoList.append(videoDict['video'])
+				# check if the video already exists in the video cache by
+				# referencing it against the previously create videoList
+				if video not in videoList:
+					# begin building dict to add to the category array
+					temp={}
+					# set the video url to the found url
+					temp['video']=video
+					# find the video title using youtube-dl
+					title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
+					title=title.communicate()[0].strip()
+					# set the title
+					temp['name']=title
+					# get the thumbnail url
+					thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
+					thumbnail=thumbnail.communicate()[0].strip()
+					# set the thumbnail
+					temp['thumb']=thumbnail
+					# set the genre to youtube
+					temp['genre']='youtube'
+					# add a time to the element for the purposes of sorting
+					temp['foundTime']=datetime.datetime.now()
+					# set user data in the cache
+					self.addVideo(userName,temp)
 		# update the settings in the saved cache after the loops
 		self.saveConfig('cache',self.cache)
 		# return the cached videos
@@ -441,15 +540,18 @@ def createButton(action='',title='default',thumb='default',icon='default',fanart
 #addonObject=xbmcaddon.Addon(id="plugin.video.youtubetv")
 #addonObject=xbmcaddon.Addon()
 # Get the plugin url in plugin:// notation.
+_id= 'plugin.video.youtubetv'
 _url = sys.argv[0]
-debug.add('sys.argv is',sys.argv)
+debug.add('plugin url',_url)
+_resdir = "special://home/addons/"+_id+"/resources"
+debug.add('resources directory',_resdir)
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
 debug.add('plugin handle is',_handle)
 # load the youtube videos on that channel from
 #addonObject=xbmcaddon.Addon(str(_handle))
 #addonObject=xbmcaddon.Addon(str('plugin.video.youtubetv'))
-addonObject=xbmcaddon.Addon(id=str('plugin.video.youtubetv'))
+addonObject=xbmcaddon.Addon(id=str(_id))
 session=YoutubeTV()
 #debug.add(os.listdir('.'))#DEBUG
 
@@ -543,7 +645,8 @@ def list_categories():
 	# Create a list for our items.
 	listing = []
 	# create a search channel button in the channels view
-	listing.append(createButton(action='searchChannel',title='Search Channels',thumb='default',icon='default',fanart='default'))
+	searchIconPath=(_resdir+'/media/search.png')
+	listing.append(createButton(action='searchChannel',title='Search Channels',thumb=searchIconPath,icon=searchIconPath,fanart='default'))
 	# Iterate through categories
 	for category in categories:
 		# if a category has nothing in it then no category will be listed in the interface
