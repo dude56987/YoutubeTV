@@ -189,6 +189,30 @@ class YoutubeTV():
 			return
 		# save the config changes
 		self.saveConfig('channels',self.channels)
+	def resetChannel(self,channelUsername):
+		# remove the cached channel information
+		self.cache[channelUsername]=[]
+		# delete the timer value
+		del self.timer[channelUsername]
+		# grab new channel information
+		self.getUserVideos(channelUsername)
+	def removeChannel(self,channelUsername):
+		# check if channel exists in channels
+		if channelUsername not in self.channels:
+			debug.add('channel does not exist to remove')
+			# channel does not exist
+			return
+		else:
+			# remove the channel from the channels array
+			self.channels.remove(channelUsername)
+			# remove the channel from the cache
+			del self.cache[channelUsername]
+			# remove timers for the channels
+			del self.timer[channelUsername]
+		# save the changes to the data
+		self.saveConfig('channels',self.channels)
+		self.saveConfig('cache',self.cache)
+		self.saveConfig('timer',self.timer)
 	def checkTimer(self,userName):
 		debug.add('checking timer for',userName)
 		'''
@@ -331,8 +355,6 @@ class YoutubeTV():
 		xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
 		# Finish creating a virtual folder.
 		xbmcplugin.endOfDirectory(_handle)
-		# the banner image seems to use a dynamically generated css link so I
-		# have no fucking idea how I would grab that to use in kodi
 	def grabWebpage(self,url):
 		# get the youtube users webpage
 		webpageText=urllib.urlopen(url)
@@ -441,8 +463,8 @@ class YoutubeTV():
 				temp['video']=video
 				# set the title
 				temp['name']=title
-				# set the thumbnail
-				temp['thumb']=thumb
+				# set the thumbnail, add http to make the address resolve
+				temp['thumb']="http:"+thumb
 				# set the genre to youtube
 				temp['genre']='youtube'
 				# update the progress bar on screen and increment the counter
@@ -612,6 +634,7 @@ VIDEOS = session.cache
 
 
 def get_categories():
+	debug.add('get_categories() called')
 	"""
 	Get the list of video categories.
 	Here you can insert some parsing code that retrieves
@@ -627,6 +650,7 @@ def get_categories():
 	return session.cache.keys()
 
 def get_videos(category):
+	debug.add('get_videos() called')
 	"""
 	Get the list of videofiles/streams.
 	Here you can insert some parsing code that retrieves
@@ -639,6 +663,7 @@ def get_videos(category):
 	return session.getUserVideos(category)
 
 def list_categories():
+	debug.add('list_categories() called')
 	"""
 	Create the list of video categories in the Kodi interface.
 	"""
@@ -655,8 +680,17 @@ def list_categories():
 		# if a category has nothing in it then no category will be listed in the interface
 		if len(category)==0:
 			return
+		# store video title for use in this scope
+		title=session.channelCache[category]['title']
 		# Create a list item with a text label and a thumbnail image.
-		list_item = xbmcgui.ListItem(label=session.channelCache[category]['title'])
+		list_item = xbmcgui.ListItem(label=title)
+		# add context menu actions
+		contextItems=[]
+		# remove category button
+		contextItems.append((('Remove '+title),'RunPlugin('+_url+'?action=removeChannel&value='+category+')'))
+		# reset channel button
+		contextItems.append(('Reset Channel','RunPlugin('+_url+'?action=resetChannel&value='+category+')'))
+		list_item.addContextMenuItems(contextItems)
 		# Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
 		# Here we use the same image for all items for simplicity's sake.
 		# In a real-life plugin you need to set each image accordingly.
@@ -688,6 +722,7 @@ def list_categories():
 	xbmcplugin.endOfDirectory(_handle)
 
 def list_videos(category):
+	debug.add('list_videos() called')
 	"""
 	Create the list of playable videos in the Kodi interface.
 
@@ -742,6 +777,7 @@ def list_videos(category):
 	# Finish creating a virtual folder.
 	xbmcplugin.endOfDirectory(_handle)
 def play_video(path):
+	debug.add('play_video() called')
 	"""
 	Play a video by the provided path.
 
@@ -777,8 +813,13 @@ def router(paramstring):
 	if params:
 		if params['action'] == 'listing':
 			debug.add('action=listing was activated in router')
-			# Display the list of videos in a provided category.
-			list_videos(params['category'])
+			if params['category'] in session.cache.keys():
+				# Display the list of videos in a provided category.
+				list_videos(params['category'])
+			else:
+				# refresh the category view as a nonexisting channel
+				# was clicked
+				list_categories()
 		elif params['action'] == 'play':
 			debug.add('action=play was activated in router')
 			# Play a video from a provided URL.
@@ -787,10 +828,23 @@ def router(paramstring):
 			debug.add('action=main was activated in router')
 			# the item is a return to main menu button
 			list_categories()
+		elif params['action'] == 'removeChannel':
+			debug.add('action=removeChannel was activated in router')
+			# remove the channel from cache and channel list
+			session.removeChannel(params['value'])
+			# refresh the view
+			list_categories()
+		elif params['action'] == 'resetChannel':
+			debug.add('action=resetChannel was activated in router')
+			# grab new channel information
+			session.resetChannel(params['value'])
+			# refresh the view
+			list_categories()
 		elif params['action'] == 'addChannel':
 			# check for blank strings and ignore them
 			if len(params['value']) > 0:
 				session.addChannel(params['value'])
+			# refresh the view
 			list_categories()
 		elif params['action'] == 'searchChannel':
 			debug.add('addChannel invoked, creating dialog')
@@ -803,6 +857,7 @@ def router(paramstring):
 			if len(returnString) > 0:
 				session.searchChannel(returnString)
 			else:
+				# refresh the view
 				list_categories()
 	else:
 		debug.add('listing categories...')
