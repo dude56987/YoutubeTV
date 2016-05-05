@@ -16,7 +16,7 @@ import os
 import subprocess
 import datetime
 import pickle
-from time import sleep
+import HTMLParser
 ###################
 class masterDebug():
 	# master debug object for debugging plugin
@@ -82,11 +82,6 @@ def findText(start,end,searchString):
 	debug.add('final cut',temp)
 	# return the middle
 	return temp
-
-	#temp=searchString.split(start)
-	#temp=temp[1]
-	#temp=temp.split(end)
-	#temp=temp[0]
 # session class for youtubeTV session starting
 class YoutubeTV():
 	def __init__(self):
@@ -366,19 +361,35 @@ class YoutubeTV():
 		return temp
 	def addVideo(self,channel,newVideo):
 		'''channel is a string, item is a dict'''
+		if len(self.cache[channel])<1:
+			# set found time for video
+			newVideo['foundTime']=1
+			# if the cache has no existing videos then add the video
+			self.cache[channel].append(newVideo)
+			# then exit the function
+			return
 		# check for buttons that are not videos
 		if "branded-page-gutter-padding" in newVideo['video']:
 			# video is a button not a video dont add video
 			return
-		# Check for duplicates of existing videos
-		for videoObject in self.cache[channel]:
+		# create videoCounterHigh to store the highest counter value for the video
+		videoCounterHigh=0
+		for oldVideo in self.cache[channel]:
 			# check for duplicates
-			if newVideo['name'] == videoObject['name'] :
+			if newVideo['name'] == oldVideo['name'] :
 				# duplicate found exit function
 				return
-		# sleep one second per video in order to give videos 
-		# diffrent timestamps
-		sleep(1)
+			# add a time to the element for the purposes of sorting
+			# this must be done after the element order has been reversed
+			# in order for sorting to be properly managed the video
+			# foundtime is a counter so it must find the highest foundtime
+			# already in the array of videoObjects
+			if oldVideo['foundTime']>videoCounterHigh:
+				# the counter is equal to the highest counter on a video
+				videoCounterHigh=oldVideo['foundTime']
+		# set the new video to have a counter value of one more than the highest
+		# foundTime counter existing on a video in the list
+		newVideo['foundTime']=videoCounterHigh+1
 		# create left and right variables to paste the variable
 		# in the correct location
 		left=[]
@@ -386,11 +397,6 @@ class YoutubeTV():
 		# found variable tells the loop that the location has been found
 		# so place all the rest of the variables on the right
 		found=False
-		if len(self.cache[channel])<1:
-			# if the cache has no existing videos then add the video
-			self.cache[channel].append(newVideo)
-			# then exit the function
-			return
 		# search for placement of video in existing cached videos
 		for oldVideo in self.cache[channel]:
 			debug.banner()
@@ -457,6 +463,8 @@ class YoutubeTV():
 				video=findText('href="/watch?v=','"',line)
 				thumb=findText('src="','"',line)
 				title=findText('dir="ltr" title="','"',line)
+				# convert all html entities in the title to unicode charcters
+				title=HTMLParser.HTMLParser().unescape(title)
 				# begin building dict to add to the category array
 				temp={}
 				# set the video url to the found url
@@ -480,10 +488,6 @@ class YoutubeTV():
 			progressCurrent=0.0
 			# add found video information to the cache
 			for video in videos:
-				# add a time to the element for the purposes of sorting
-				# this must be done after the element order has been reversed
-				# in order for sorting to be properly managed
-				video['foundTime']=datetime.datetime.now()
 				# this is the second half of the video updates so the dialog keeps running
 				# update the progress bar on screen and increment the counter
 				progressDialog.update(int(100*(progressCurrent/progressTotal)),video['name'])
