@@ -20,8 +20,15 @@ install: build
 uninstall: reset
 	# remove the addon and the addon data
 	rm -rv ~/.kodi/addons/plugin.video.youtubetv
+clean-log:
+	rm -v ~/.kodi/temp/kodi.log
 log:
 	less ~/.kodi/temp/kodi.log
+debug-settings:
+	# display all the settings files
+	cat ~/.kodi/userdata/addon_data/plugin.video.youtubetv/*
+	# display file sizes
+	du -sh ~/.kodi/userdata/addon_data/plugin.video.youtubetv/*
 debug:
 	#cat ~/.kodi/temp/kodi.log | grep 'NOTE:*End of Python script error report'
 	tail -f ~/.kodi/temp/kodi.log | grep "NOTICE:"
