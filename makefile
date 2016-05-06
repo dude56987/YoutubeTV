@@ -45,7 +45,8 @@ reset:
 	# install the plugin again
 	make install
 project-report: .git/*
-	sudo apt-get install gitstats gource --assume-yes
+	which gitstats || sudo apt-get install gitstats --assume-yes
+	which gource || sudo apt-get install gource --assume-yes
 	rm -vr report/ || echo "No existing report..."
 	mkdir -p report
 	mkdir -p report/webstats
