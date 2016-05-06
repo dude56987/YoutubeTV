@@ -490,7 +490,12 @@ class YoutubeTV():
 				# set the title
 				temp['name']=title
 				# set the thumbnail, add http to make the address resolve
-				temp['thumb']="http:"+thumb
+				if "http" not in thumb:
+					# if https is not in the path add it
+					temp['thumb']="http:"+thumb
+				else:
+					# otherwise add the path
+					temp['thumb']=thumb
 				# set the genre to youtube
 				temp['genre']='youtube'
 				# update the progress bar on screen and increment the counter
@@ -780,6 +785,7 @@ def list_videos(category):
 	listing = []
 	# Iterate through videos.
 	for video in videos:
+		debug.add('videoThumb',video['thumb'])
 		# Create a list item with a text label and a thumbnail image.
 		list_item = xbmcgui.ListItem(label=video['name'])
 		# Set additional info for the list item.
