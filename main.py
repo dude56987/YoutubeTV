@@ -217,16 +217,16 @@ class YoutubeTV():
 		
 		returns bool
 		'''
+		# grab the timer value, and cast the value to a int
+		refreshDelay=addonObject.getSetting('refreshDelay')
+		refreshDelay=int(refreshDelay)
 		if userName in self.timer.keys():
-			debug.add('checking timer for username',userName)
-			debug.add('lastTime',self.timer[userName])
-			debug.add('nowTime',datetime.datetime.now())
 			# update videos if videos were updated more than an hour ago
 			if self.timer[userName]<datetime.datetime.now():
 				# if the timer is over an hour old everything needs updated
 				#############
 				# update the timer to only update one hour from now
-				self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
+				self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=refreshDelay)
 				# save timer changes
 				self.saveConfig('timer',self.timer)
 				return True
@@ -248,6 +248,24 @@ class YoutubeTV():
 			# refresh all videos in channel
 			self.getUserVideos(channel)
 	def searchChannel(self,searchString):
+		# grab the channel cache limit setting
+		channelLimit=addonObject.getSetting('channelLimit')
+		channelLimit=int(channelLimit)
+		# number of channels to delete from the cache
+		deleteCounter=len(self.channelCache.keys())-channelLimit
+		# ignore limit if value is zero
+		if channelLimit != 0:
+			# for each channel in the channel cache check
+			# if the channel has been added by the user
+			for channelTitle in self.channelCache.keys():
+				# if channel is not a user added channel
+				if channelTitle not in self.channels:
+					# if the delete counter is still above 0
+					if deleteCounter>0:
+						# delete the channel from the cache
+						del self.channelCache[channelTitle]
+						# decrement the delete counter
+						deleteCounter-=1
 		# searches on youtube can be placed with the below string
 		# add your search terms at the end of the string
 		#"https://www.youtube.com/results?search_query="
@@ -548,6 +566,17 @@ class YoutubeTV():
 					temp['foundTime']=datetime.datetime.now()
 					# set user data in the cache
 					self.addVideo(userName,temp)
+		# load up the video limit from settings
+		videoLimit=addonObject.getSetting('videoLimit')
+		# cast videolimit from a string to a int
+		videoLimit=int(videoLimit)
+		# ignore videoLimit if it is set to 0
+		if videoLimit!=0:
+			# trim videos to the video limit
+			while len(self.cache[userName])>videoLimit:
+				# pop off a single item from the end of
+				# the array
+				self.cache[userName].pop()
 		# update the settings in the saved cache after the loops
 		self.saveConfig('cache',self.cache)
 		# return the cached videos

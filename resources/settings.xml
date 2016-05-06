@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <settings>
-	<category label='internals'>
-		<setting visible='false' id='cache' type='text' default='' label='cache'/>
-		<setting visible='false' id='timer' type='text' default='' label='timer'/>
-		<setting visible='false' id='channels' type='text' default='' label='channels'/>
-		<setting visible='false' id='channelCache' type='text' default='' label='channelCache'/>
+	<category label='Cache'>
+		<!-- <setting label='refresh' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/)'/> -->
+		<setting id='videoLimit' type='number' default='100' label='Videos to cache per channel'/>
+		<setting id='channelLimit' type='number' default='300' label='Channels to store in search cache'/>
+		<setting id='refreshDelay' type='number' default='1' label='Forced delay in hours for cache refreshing'/>
+		<!-- Invisible internal values for addon storage -->
+		<setting visible='false' id='cache' type='text' default=''/>
+		<setting visible='false' id='timer' type='text' default=''/>
+		<setting visible='false' id='channels' type='text' default=''/>
+		<setting visible='false' id='channelCache' type='text' default=''/>
 	</category>
 </settings>
