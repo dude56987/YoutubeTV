@@ -19,11 +19,21 @@ import pickle
 import HTMLParser
 ###################
 class masterDebug():
-	# master debug object for debugging plugin
-	def __init__(self):
-		self.banner(' PYTHON DEBUG ')
+	'''
+	A master debuging object to handle all debugging output
+	
+	If given a value of False debugging will be disabled.
+	e.g. "debug=masterDebug(False)"
+	'''
+	def __init__(self,debug=True):
+		self.debug=debug
 		self.text=[]
+		if debug==True:
+			self.banner(' PYTHON DEBUG ')
 	def add(self,title=None,content=None):
+		# check if debug is disabled
+		if debug==False:
+			return
 		# - All arguments given here are casted to strings
 		# if user gives two arguements the first is considered the title
 		if content!= None:
@@ -39,6 +49,9 @@ class masterDebug():
 		# return the text array
 		return self.text
 	def banner(self,titleString=None):
+		# check if debug is disabled
+		if debug==False:
+			return
 		if titleString != None:
 			title=str(titleString)
 			edge='#'*((80-len(title))/2)
@@ -48,6 +61,9 @@ class masterDebug():
 		else:
 			print('#'*80)
 	def display(self):
+		# check if debug is disabled
+		if debug==False:
+			return
 		# draw banner divider
 		self.banner(' PYTHON DEBUG ')
 		# write each line of the debug
@@ -56,9 +72,8 @@ class masterDebug():
 			print('DEBUG:'+str(line))
 		# draw bottom divider
 		self.banner()
-		#os.system('xterm -e bash -c \'echo "'+str(self.text)+'" | less\'')
 # create master debug object
-debug=masterDebug()
+debug=masterDebug(True)
 # findText
 def findText(start,end,searchString):
 	'''
