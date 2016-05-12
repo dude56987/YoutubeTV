@@ -100,7 +100,10 @@ def findText(start,end,searchString):
 # session class for youtubeTV session starting
 class YoutubeTV():
 	def __init__(self):
-		'''This object loads up the youtubeTV session for cache functionality and automated work.'''
+		'''
+		This object loads up the youtubeTV session for
+		cache functionality and automated work.
+		'''
 		# create the cache for this session
 		self.cache=self.loadConfig('cache','dict')
 		#debug.add('main cache',self.cache)
@@ -121,6 +124,11 @@ class YoutubeTV():
 				#update the channel videos
 				self.getUserVideos(channel)
 	def saveFile(self,fileName,content):
+		'''
+		Save a file with the path fileName containing the content content.
+
+		:return None
+		'''
 		# open the file to write
 		fileObject=open(('~/.kodi/userdata/addon_data/'+_id+'/'+fileName),'w')
 		# write file content
@@ -128,6 +136,14 @@ class YoutubeTV():
 		# close the file
 		fileObject.close()
 	def loadFile(self,fileName):
+		'''
+		Load a file with the path fileName.
+		
+		Returns the loaded file as a string or if the
+		file fails to load return False.
+
+		:return bool/string
+		'''
 		# this is where all files related to the plugin will be stored
 		basePath=('~/.kodi/userdata/addon_data/'+_id+'/')
 		# if the base config directory does not exist
@@ -156,8 +172,12 @@ class YoutubeTV():
 			# return false if the file is not found
 			return False
 	def saveConfig(self,config,newValue):
-		'''Convert objects into strings and save in xbmc settings
-		for the addon.'''
+		'''
+		Convert objects into strings and save in xbmc settings
+		for the addon.
+		
+		:return None
+		'''
 		# convert the new value into a string for storage
 		debug.add('saveConfig NOT PICKLED',newValue)
 		temp=pickle.dumps(newValue)
@@ -167,8 +187,12 @@ class YoutubeTV():
 		addonObject.setSetting(config,temp)
 		#xbmcplugin.setSettings(_handle,config,temp)
 	def loadConfig(self,config,blankType):
-		'''Used for loading objects from xbmc settings that were
-		stored using pythons pickle functionality.'''
+		'''
+		Used for loading objects from xbmc settings that were
+		stored using pythons pickle functionality.
+
+		:return array/dict
+		'''
 		# open the pickled settings using xbmcs settings api
 		configObject=addonObject.getSetting(config)
 		#configObject=xbmcplugin.getSettings(_handle,config)
@@ -187,6 +211,11 @@ class YoutubeTV():
 				# default to return an array
 				return []
 	def addChannel(self,channelUsername):
+		'''
+		Add a channel with channelUsername to the cache.
+
+		return None
+		'''
 		# check if username is already in channels
 		if channelUsername not in self.channels:
 			# add username to channels
@@ -200,6 +229,12 @@ class YoutubeTV():
 		# save the config changes
 		self.saveConfig('channels',self.channels)
 	def resetChannel(self,channelUsername):
+		'''
+		Delete channel cache information, and redownload
+		all channel videos.
+
+		:return None
+		'''
 		# remove the cached channel information
 		self.cache[channelUsername]=[]
 		# delete the timer value
@@ -207,6 +242,11 @@ class YoutubeTV():
 		# grab new channel information
 		self.getUserVideos(channelUsername)
 	def removeChannel(self,channelUsername):
+		'''
+		Remove channel with username channelUsername.
+
+		:return None
+		'''
 		# check if channel exists in channels
 		if channelUsername not in self.channels:
 			debug.add('channel does not exist to remove')
