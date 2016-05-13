@@ -82,19 +82,14 @@ def findText(start,end,searchString):
 	
 	return string
 	'''
-	debug.add('searchString',searchString)
 	# find the start index of the startstring
 	start=searchString.find(start)+len(start)
-	debug.add('start',start)
 	# middle cut
 	firstCut=searchString[start:]
-	debug.add('first cut',firstCut)
 	# find then end string index
 	end=firstCut.find(end)
-	debug.add('end',end)
 	# cut the end off
 	temp=firstCut[:end]
-	debug.add('final cut',temp)
 	# return the middle
 	return temp
 # session class for youtubeTV session starting
@@ -106,14 +101,14 @@ class YoutubeTV():
 		'''
 		# create the cache for this session
 		self.cache=self.loadConfig('cache','dict')
-		#debug.add('main cache',self.cache)
 		# cache timer
 		self.timer=self.loadConfig('timer','dict')
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
 		# load the channels cache
 		self.channelCache=self.loadConfig('channelCache','dict')
-		#debug.add('channel cache',self.channelCache)
+		# playlist cache
+		self.playlistCache=self.loadConfig('playlistCache','dict')
 		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
 		# update the channels
 		for channel in self.channels:
@@ -154,7 +149,6 @@ class YoutubeTV():
 		path=(basePath+fileName)
 		# check if the config file exists already
 		if os.path.exists(path):
-			debug.add('file path exists : '+str(path))
 			# open the file to write
 			fileObject=open(path,'r')
 			# temp string to hold file content
@@ -163,12 +157,10 @@ class YoutubeTV():
 			for line in fileObject:
 				temp+=line
 			# return the contents of the file as a string
-			debug.add('fileContent : '+str(temp))
 			return temp
 			# return the string text of the file
 			#return fileObject.read()
 		else:
-			debug.add('file path does not exists : '+str(path))
 			# return false if the file is not found
 			return False
 	def saveConfig(self,config,newValue):
@@ -179,9 +171,7 @@ class YoutubeTV():
 		:return None
 		'''
 		# convert the new value into a string for storage
-		debug.add('saveConfig NOT PICKLED',newValue)
 		temp=pickle.dumps(newValue)
-		debug.add('saveConfig PICKLED',temp)
 		# write new config back to the addon settings
 		#self.saveFile(config,temp)
 		addonObject.setSetting(config,temp)
@@ -249,7 +239,6 @@ class YoutubeTV():
 		'''
 		# check if channel exists in channels
 		if channelUsername not in self.channels:
-			debug.add('channel does not exist to remove')
 			# channel does not exist
 			return
 		else:
@@ -264,7 +253,6 @@ class YoutubeTV():
 		self.saveConfig('cache',self.cache)
 		self.saveConfig('timer',self.timer)
 	def checkTimer(self,userName):
-		debug.add('checking timer for',userName)
 		'''
 		Checks timer on username to see if videos in that channel have been
 		refreshed within the past hour.
@@ -298,10 +286,174 @@ class YoutubeTV():
 			self.saveConfig('timer',self.timer)
 			return True
 	def refreshCache(self):
+		'''
+		Refresh all channels stored in the plugin cache.
+
+		:return None
+		'''
 		# get list of channels to update cache
 		for channel in self.channels:
 			# refresh all videos in channel
 			self.getUserVideos(channel)
+	def channelPlaylists(self,channelName,display=True):
+		debug.add('channelPlaylists called')
+		'''
+		Grab the playlists for a channel with the username channelName.
+		
+		Returns a dict with keys that are the playlist ids.
+
+		:return dict
+		'''
+		# sample playlist format
+		# the cache stores channels as the identifyer for an
+		# dict that uses all the playlists as identifyers
+		# The playlist identifer holds a dict containing
+		# a title, thumbnail and array. The array holds a list
+		# of videos that can be played
+		#examplePlaylistCache={'bluexephos':
+		#	{'PL3XZNMGhpynO4zNTbWTXMuN4NuX99mp7s':{
+		#		'title':'oneshot first best impressions',
+		#		'array':[
+		#				{'video':'videoValue',
+		#				'title':'Video Title',
+		#				'thumb':'thumbnailPath'
+		#			}
+		#				{'video':'videoValue',
+		#				'title':'Video Title',
+		#				'thumb':'thumbnailPath'
+		#			}
+		#		]
+		#	}
+		#}
+		debug.add('playlistCache',self.playlistCache)
+		# check timer for the channelPlaylists 
+		if self.checkTimer(channelName+':playlists') is True:
+			# timer has rang, entry needs updated
+
+			# if no playlist entries exist for this channel
+			# create a blank entry
+			if channelName not in self.playlistCache.keys():
+				self.playlistCache[channelName]={}
+			# grab a list of all the playlists for this channel
+			results=self.grabWebpage("https://www.youtube.com/user/"+channelName+"/playlists")
+			results=results.split('"')
+			paths=[]
+			# create an array of all the playlist ids
+			for line in results:
+				if '/playlist?list=' in line:
+					debug.add('found a playlist on page',line)
+					paths.append(line.replace('/playlist?list=',''))
+			# for each playlist id
+			for playlistId in paths:
+				# if the playlist does not exist yet
+				if playlistId not in self.playlistCache[channelName].keys():
+					# create a entry in the playlist cache
+					self.playlistCache[channelName][playlistId]={}
+					# add a blank array value
+					self.playlistCache[channelName][playlistId]['array']=[]
+					# update the playlist title and grab all videos in the
+					# playlist to store them in the cache
+					self.grabPlaylist(playlistId,channelName,display=None)
+		# if the function should display items onscreen
+		if display==True:
+			# create a list for all the buttons to be stored in before
+			# drawing them onscreen
+			listing=[]
+			# for each playlist in the playlist cache create a button
+			for key in self.playlistCache[channelName]:
+				debug.add('key',key)
+				# grab the playlist id 
+				playlistId=key
+				# set the title to the cached playlist title
+				title=self.playlistCache[channelName][key]['name']
+				# set the thumbnail to the first entry in the playlist
+				thumb=self.playlistCache[channelName][key]['array'][0]['thumb']
+				# create a button for each playlist to display that playlist
+				action=('viewPlaylist&channel='+channelName+'&playlist='+playlistId)
+				temp=createButton(action=action,\
+						title=title,\
+						thumb=thumb,\
+						icon=thumb,\
+						fanart=thumb)
+				listing.append(temp)
+			# save the playlists into the playlist cache
+			self.saveConfig('playlistCache',self.playlistCache)
+			xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
+			# change the default view to thumbnails
+			xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
+			# Finish creating a virtual folder.
+			xbmcplugin.endOfDirectory(_handle)
+	def grabPlaylist(self,playlistId,channelName,display=True):
+		'''
+		Grab the playlist items for a playlist "playlistId" that is a 
+		playlist of the "channelName"
+
+		Returns an array of all the videos in a playlist
+
+		:return array
+		'''
+		# create the runplugin button to list the playlist
+		playlistList=self.grabWebpage('https://www.youtube.com/playlist?list='+playlistId)
+		# grab title of the playlist from the downloaded file
+		title=findText('<title>','</title>',playlistList)
+		# replace the youtube part in the title text
+		title=title.replace('- YouTube','')
+		debug.add('playlist title',title)
+		# set the title in the cache
+		self.playlistCache[channelName][playlistId]['name']=title
+		# for each item in the playlist cache the data
+		for item in playlistList.split('<tr class="pl-video yt-uix-tile'):
+			title=findText('data-title="','"',item)
+			video=findText('data-video-id="','"',item)
+			debug.add('video id ',video)
+			thumb=findText('data-thumb="','"',item)
+			# if video id is not a dupe and does not contain any html
+			if video not in str(self.playlistCache[channelName][playlistId]['array']) and\
+			'><' not in video:
+				# begin building dict to add to the category array
+				temp={}
+				# set the video url to the found url
+				temp['video']=video
+				# set the title
+				temp['name']=title
+				# set the thumbnail, add http to make the address resolve
+				if "http" not in thumb:
+					# if https is not in the path add it
+					temp['thumb']="http:"+thumb
+				else:
+					# otherwise add the path
+					temp['thumb']=thumb
+				# set the genre to youtube
+				temp['genre']='youtube'
+				# add the found playlist items to the playlist array value
+				self.playlistCache[channelName][playlistId]['array'].append(temp)
+		# save videos to the playlistcache
+		self.saveConfig('playlistCache',self.playlistCache)
+		# if display is set to true then draw this playlist onscreen
+		if display==True:
+			# create a list for all the buttons to be stored in before
+			# drawing them onscreen
+			listing=[]
+			# for each video in the playlist array
+			for item in self.playlistCache[channelName][playlistId]['array']:
+				# set the title to the cached playlist title
+				title=item['name']
+				# set the thumbnail to the cached thumbnail
+				thumb=item['thumb']
+				# create a button to add the channel in the results	
+				action=('play&video='+item['video'])
+				temp=createButton(action=action,\
+						title=title,\
+						thumb=thumb,\
+						icon=thumb,\
+						fanart=thumb,\
+						is_folder=False)
+				listing.append(temp)
+			xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
+			# change the default view to thumbnails
+			xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
+			# Finish creating a virtual folder.
+			xbmcplugin.endOfDirectory(_handle)
 	def searchChannel(self,searchString):
 		# grab the channel cache limit setting
 		channelLimit=addonObject.getSetting('channelLimit')
@@ -387,20 +539,16 @@ class YoutubeTV():
 						# you should store these things in the cache somehow to use them 
 						# when rendering the channels view
 						debug.banner()
-						debug.add('found tag string',tag)
-						debug.add('channel username',channel)
 						# grab text in src attribute between parathenesis
 						icon=tag.split('src="')
 						icon=icon[1].split('"')
 						icon=icon[0]
-						debug.add('Icon Path',icon)
 						# grab text in title attribute for channel title
 						title=tag.split('title="')
 						title=title[1].split('"')
 						title=title[0]
 						# clean html entities from title
 						title=title.replace('&amp;','&')
-						debug.add('Title',title)
 						# add channel information to the channel cache
 						self.channelCache[channel]={}
 						# add title and icon
@@ -473,38 +621,30 @@ class YoutubeTV():
 		# search for placement of video in existing cached videos
 		for oldVideo in self.cache[channel]:
 			debug.banner()
-			debug.add('oldVideo is',oldVideo)
-			debug.add('newVideo is',newVideo)
 			# for each video in the channels cache
 			if found:
-				debug.add('placement already found, adding videos to the right')
 				# if video placement has already been found
 				# add remaining videos to the right
 				right.append(oldVideo)
 			else:
 				# if video placement has not yet been found
 				if oldVideo['foundTime'] < newVideo['foundTime']:
-					debug.add('newVideo is newer than oldvideo')
 					# if newVideo is newer than oldVideo
 					left.append(newVideo)
 					right.append(oldVideo)
 					# then set the value of found to true
 					found=True
 				else:
-					debug.add('newVideo is older than oldvideo')
 					#if newVideo is older than oldVideo
 					left.append(oldVideo)
 		# if now proper placement was found for the video then place
 		# the video on at the end of the list of videos
 		if found==False:
 			right.append(newVideo)
-		debug.add('left array',left)
-		debug.add('right array',right)
 		# add the two arrays together to get the new list
 		# that has the video correctly placed inside
 		self.cache[channel]=list(left+right)
 	def getUserVideos(self,userName):
-		debug.add('getting user videos for username',userName)
 		# create the progress bar
 		progressDialog=xbmcgui.DialogProgress()
 		# check the timer on the username
@@ -518,7 +658,6 @@ class YoutubeTV():
 		downloadMethod='youtubetv'
 		#we have two different methods of grabing metadata
 		if downloadMethod=='youtubetv':
-			debug.add("download method is youtubetv")
 			# search the videos without youtube-dl
 			# search for the list of videos in the webpage
 			temp=findText('<ul id="channels-browse-content-grid','<button class="yt-lockup-dismissable"></div>',temp)
@@ -537,6 +676,7 @@ class YoutubeTV():
 				thumb=findText('src="','"',line)
 				title=findText('dir="ltr" title="','"',line)
 				# convert all html entities in the title to unicode charcters
+				title=title.decode('utf8')
 				title=HTMLParser.HTMLParser().unescape(title)
 				# begin building dict to add to the category array
 				temp={}
@@ -573,7 +713,6 @@ class YoutubeTV():
 				# set user data in the cache
 				self.addVideo(userName,video)
 		elif downloadMethod=='youtube-dl':
-			debug.add("download method is youtube-dl")
 			# split page based on parathensis since we are looking for video play strings 
 			webpageText=temp.split('"')
 			# run though the split text array looking for watch strings in lines
@@ -596,7 +735,6 @@ class YoutubeTV():
 				# update the progress bar on screen and increment the counter
 				progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
 				progressCurrent+=1
-				debug.add('updating video info for link',video)
 				# build a list of existing video urls in cache to check aginst
 				videoList=[] 
 				for videoDict in self.cache[userName]:
@@ -642,15 +780,13 @@ class YoutubeTV():
 		# return the cached videos
 		return self.cache[userName]
 ################################################################################
-def createButton(action='',title='default',thumb='default',icon='default',fanart='default'):
+def createButton(action='',title='default',thumb='default',icon='default',fanart='default',is_folder=True):
 	'''Create a list item to be created that is used as a menu button'''
-	debug.add('creating button')
 	url=(_url+'?action='+action)
 	list_item = xbmcgui.ListItem(label=title)
 	list_item.setInfo('video', {'title':title , 'genre':'menu' })
 	list_item.setArt({'thumb': thumb, 'icon': icon, 'fanart': fanart})
 	list_item.setProperty('IsPlayable', 'true')
-	is_folder = True
 	listingItem=(url, list_item, is_folder)
 	return listingItem
 ################################################################################
@@ -660,23 +796,17 @@ def createButton(action='',title='default',thumb='default',icon='default',fanart
 # Get the plugin url in plugin:// notation.
 _id= 'plugin.video.youtubetv'
 _url = sys.argv[0]
-debug.add('plugin url',_url)
 _resdir = "special://home/addons/"+_id+"/resources"
-debug.add('resources directory',_resdir)
+# add the resources directory to the sys path to import libaries
+sys.path.append(_resdir+'/lib/')
+#import youtubetv
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
-debug.add('plugin handle is',_handle)
 # load the youtube videos on that channel from
 #addonObject=xbmcaddon.Addon(str(_handle))
 #addonObject=xbmcaddon.Addon(str('plugin.video.youtubetv'))
 addonObject=xbmcaddon.Addon(id=str(_id))
 session=YoutubeTV()
-#debug.add(os.listdir('.'))#DEBUG
-
-#fileObject=open('~/.kodi/userdata/addon_data/plugin.video.youtubetv/channels','r')
-
-#for line in fileObject:
-	#print(line)
 # Free sample videos are provided by www.vidsplay.com
 # Here we use a fixed set of properties simply for demonstrating purposes
 # In a "real life" plugin you will need to get info and links to video files/streams
@@ -685,49 +815,7 @@ session=YoutubeTV()
 # Read videos from text file where each line contains a username to 
 # load the cache into videos, needs reloaded upon changes
 VIDEOS = session.cache
-#~ VIDEOS = {'Animals': [{'name': 'Crab',
-					   #~ 'thumb': 'http://www.vidsplay.com/vids/crab.jpg',
-					   #~ 'video': 'http://www.vidsplay.com/vids/crab.mp4',
-					   #~ 'genre': 'Animals'},
-					  #~ {'name': 'Alligator',
-					   #~ 'thumb': 'http://www.vidsplay.com/vids/alligator.jpg',
-					   #~ 'video': 'http://www.vidsplay.com/vids/alligator.mp4',
-					   #~ 'genre': 'Animals'},
-					  #~ {'name': 'Turtle',
-					   #~ 'thumb': 'http://www.vidsplay.com/vids/turtle.jpg',
-					   #~ 'video': 'http://www.vidsplay.com/vids/turtle.mp4',
-					   #~ 'genre': 'Animals'}
-					  #~ ],
-			#~ 'Cars': [{'name': 'Postal Truck',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/us_postal.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/us_postal.mp4',
-					  #~ 'genre': 'Cars'},
-					 #~ {'name': 'Traffic',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/traffic1.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/traffic1.avi',
-					  #~ 'genre': 'Cars'},
-					 #~ {'name': 'Traffic Arrows',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/traffic_arrows.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/traffic_arrows.mp4',
-					  #~ 'genre': 'Cars'}
-					 #~ ],
-			#~ 'Food': [{'name': 'Chicken',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/chicken.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/bbqchicken.mp4',
-					  #~ 'genre': 'Food'},
-					 #~ {'name': 'Hamburger',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/hamburger.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/hamburger.mp4',
-					  #~ 'genre': 'Food'},
-					 #~ {'name': 'Pizza',
-					  #~ 'thumb': 'http://www.vidsplay.com/vids/pizza.jpg',
-					  #~ 'video': 'http://www.vidsplay.com/vids/pizza.mp4',
-					  #~ 'genre': 'Food'}
-					 #~ ]}
-
-
 def get_categories():
-	debug.add('get_categories() called')
 	"""
 	Get the list of video categories.
 	Here you can insert some parsing code that retrieves
@@ -736,14 +824,12 @@ def get_categories():
 
 	:return: list
 	"""
-	debug.add("get_categories categories",session.cache.keys())
 	# update the videos in the cache for each category
 	#session.refreshCache()
 	#return session.channels
 	return session.cache.keys()
 
 def get_videos(category):
-	debug.add('get_videos() called')
 	"""
 	Get the list of videofiles/streams.
 	Here you can insert some parsing code that retrieves
@@ -756,13 +842,11 @@ def get_videos(category):
 	return session.getUserVideos(category)
 
 def list_categories():
-	debug.add('list_categories() called')
 	"""
 	Create the list of video categories in the Kodi interface.
 	"""
 	# Get video categories
 	categories = get_categories()
-	debug.add('list_categories categories',categories)
 	# Create a list for our items.
 	listing = []
 	# create a search channel button in the channels view
@@ -815,7 +899,6 @@ def list_categories():
 	xbmcplugin.endOfDirectory(_handle)
 
 def list_videos(category):
-	debug.add('list_videos() called')
 	"""
 	Create the list of playable videos in the Kodi interface.
 
@@ -823,24 +906,13 @@ def list_videos(category):
 	"""
 	# Get the list of videos in the category.
 	videos = get_videos(category)
-	#back=[{'video':(_url+'?action=addChannel'),'genre':'menu','name':'..','thumb':'..'}]
-
-	#list_item = xbmcgui.ListItem(label='lol')
-	#list_item.setInfo('video', {'title': video['name'], 'genre': video['genre']})
-	#list_item.setArt({'thumb': video['thumb'], 'icon': video['thumb'], 'fanart': video['thumb']})
-	#list_item.setProperty('IsPlayable', 'true')
-	#is_folder = False
-	#listing.append((url, list_item, is_folder))
-
-	# add the back button to the video list
-	#videos=back+videos
-	debug.add('videos object for list_videos',videos)
-	#plugin://plugin.video.youtube/
 	# Create a list for our items.
 	listing = []
+	# create playlists button to link to youtube playlist functionality
+	listing.append(createButton(action=('channelPlaylists&channel='+category),\
+		title='Playlists',thumb=(_resdir+'/media/playlist.png'),icon='',fanart=''))
 	# Iterate through videos.
 	for video in videos:
-		debug.add('videoThumb',video['thumb'])
 		# Create a list item with a text label and a thumbnail image.
 		list_item = xbmcgui.ListItem(label=video['name'])
 		# Set additional info for the list item.
@@ -871,7 +943,6 @@ def list_videos(category):
 	# Finish creating a virtual folder.
 	xbmcplugin.endOfDirectory(_handle)
 def play_video(path):
-	debug.add('play_video() called')
 	"""
 	Play a video by the provided path.
 
@@ -882,9 +953,10 @@ def play_video(path):
 	###############
 	# the path to let videos be played by the youtube plugin
 	youtubePath='plugin://plugin.video.youtube/?action=play_video&videoid='
-	debug.add('play_video path',path)
 	# remove the full webaddress to make youtube plugin work correctly
 	path=path.replace('https://youtube.com/watch?v=','')
+	# also check for partial webaddresses we only need the video id
+	path=path.replace('watch?v=','')
 	# add youtube path to path to make videos play with the kodi youtube plugin
 	path=youtubePath+path
 	# Create a playable item with a path to play.
@@ -902,7 +974,6 @@ def router(paramstring):
 	# Parse a URL-encoded paramstring to the dictionary of
 	# {<parameter>: <value>} elements
 	params = dict(parse_qsl(paramstring))
-	debug.add('parameters for router',params)
 	# Check the parameters passed to the plugin
 	if params:
 		if params['action'] == 'listing':
@@ -922,6 +993,12 @@ def router(paramstring):
 			debug.add('action=main was activated in router')
 			# the item is a return to main menu button
 			list_categories()
+		elif params['action'] == 'channelPlaylists':
+			debug.add('action=channelPlaylists was activated in router')
+			session.channelPlaylists(params['channel'])
+		elif params['action'] == 'viewPlaylist':
+			debug.add('action=viewPlaylist was activated in router')
+			session.grabPlaylist(params['playlist'],params['channel'])
 		elif params['action'] == 'removeChannel':
 			debug.add('action=removeChannel was activated in router')
 			# remove the channel from cache and channel list
