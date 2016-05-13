@@ -252,16 +252,19 @@ class YoutubeTV():
 		self.saveConfig('channels',self.channels)
 		self.saveConfig('cache',self.cache)
 		self.saveConfig('timer',self.timer)
-	def checkTimer(self,userName):
+	def checkTimer(self,userName,delay):
 		'''
 		Checks timer on username to see if videos in that channel have been
 		refreshed within the past hour.
 		True means the timer says the video needs refreshed.
 		
-		returns bool
+		:param delay:string
+		:param userName:string
+
+		:return bool
 		'''
 		# grab the timer value, and cast the value to a int
-		refreshDelay=addonObject.getSetting('refreshDelay')
+		refreshDelay=addonObject.getSetting(delay)
 		refreshDelay=int(refreshDelay)
 		if userName in self.timer.keys():
 			# update videos if videos were updated more than an hour ago
@@ -302,32 +305,19 @@ class YoutubeTV():
 		
 		Returns a dict with keys that are the playlist ids.
 
+		:param channelName:string
+		:param display:bool
+
 		:return dict
 		'''
-		# sample playlist format
 		# the cache stores channels as the identifyer for an
 		# dict that uses all the playlists as identifyers
 		# The playlist identifer holds a dict containing
 		# a title, thumbnail and array. The array holds a list
 		# of videos that can be played
-		#examplePlaylistCache={'bluexephos':
-		#	{'PL3XZNMGhpynO4zNTbWTXMuN4NuX99mp7s':{
-		#		'title':'oneshot first best impressions',
-		#		'array':[
-		#				{'video':'videoValue',
-		#				'title':'Video Title',
-		#				'thumb':'thumbnailPath'
-		#			}
-		#				{'video':'videoValue',
-		#				'title':'Video Title',
-		#				'thumb':'thumbnailPath'
-		#			}
-		#		]
-		#	}
-		#}
 		debug.add('playlistCache',self.playlistCache)
 		# check timer for the channelPlaylists 
-		if self.checkTimer(channelName+':playlists') is True:
+		if self.checkTimer(channelName+':playlists','channelPlaylistDelay') is True:
 			# timer has rang, entry needs updated
 
 			# if no playlist entries exist for this channel
@@ -389,51 +379,62 @@ class YoutubeTV():
 		playlist of the "channelName"
 
 		Returns an array of all the videos in a playlist
+		
+		:param playlistId:string
+		:param channelName:string
+		:param display:bool
 
 		:return array
 		'''
-		# create the runplugin button to list the playlist
-		playlistList=self.grabWebpage('https://www.youtube.com/playlist?list='+playlistId)
-		# grab title of the playlist from the downloaded file
-		title=findText('<title>','</title>',playlistList)
-		# replace the youtube part in the title text
-		title=title.replace('- YouTube','')
-		debug.add('playlist title',title)
-		# set the title in the cache
-		self.playlistCache[channelName][playlistId]['name']=title
-		# for each item in the playlist cache the data
-		for item in playlistList.split('<tr class="pl-video yt-uix-tile'):
-			title=findText('data-title="','"',item)
-			video=findText('data-video-id="','"',item)
-			debug.add('video id ',video)
-			thumb=findText('data-thumb="','"',item)
-			# if video id is not a dupe and does not contain any html
-			if video not in str(self.playlistCache[channelName][playlistId]['array']) and\
-			'><' not in video:
-				# begin building dict to add to the category array
-				temp={}
-				# set the video url to the found url
-				temp['video']=video
-				# set the title
-				temp['name']=title
-				# set the thumbnail, add http to make the address resolve
-				if "http" not in thumb:
-					# if https is not in the path add it
-					temp['thumb']="http:"+thumb
-				else:
-					# otherwise add the path
-					temp['thumb']=thumb
-				# set the genre to youtube
-				temp['genre']='youtube'
-				# add the found playlist items to the playlist array value
-				self.playlistCache[channelName][playlistId]['array'].append(temp)
-		# save videos to the playlistcache
-		self.saveConfig('playlistCache',self.playlistCache)
+		# if the timer is true then the playlist needs refreshed
+		if self.checkTimer(channelName+":"+playlistId,'playlistDelay') is True:
+			# create the runplugin button to list the playlist
+			playlistList=self.grabWebpage('https://www.youtube.com/playlist?list='+playlistId)
+			# grab title of the playlist from the downloaded file
+			title=findText('<title>','</title>',playlistList)
+			# replace the youtube part in the title text
+			title=title.replace('- YouTube','')
+			debug.add('playlist title',title)
+			# set the title in the cache
+			self.playlistCache[channelName][playlistId]['name']=title
+			# for each item in the playlist cache the data
+			for item in playlistList.split('<tr class="pl-video yt-uix-tile'):
+				title=findText('data-title="','"',item)
+				video=findText('data-video-id="','"',item)
+				thumb=findText('data-thumb="','"',item)
+				# if video id is not a dupe and does not contain any html
+				if video not in str(self.playlistCache[channelName][playlistId]['array']) and\
+				'><' not in video:
+					# begin building dict to add to the category array
+					temp={}
+					# set the video url to the found url
+					temp['video']=video
+					# set the title
+					temp['name']=title
+					# set the thumbnail, add http to make the address resolve
+					if "http" not in thumb:
+						# if https is not in the path add it
+						temp['thumb']="http:"+thumb
+					else:
+						# otherwise add the path
+						temp['thumb']=thumb
+					# set the genre to youtube
+					temp['genre']='youtube'
+					# add the found playlist items to the playlist array value
+					self.playlistCache[channelName][playlistId]['array'].append(temp)
+			# save videos to the playlistcache
+			self.saveConfig('playlistCache',self.playlistCache)
 		# if display is set to true then draw this playlist onscreen
 		if display==True:
 			# create a list for all the buttons to be stored in before
 			# drawing them onscreen
 			listing=[]
+			# create a play all button
+			action=('playAll&channel='+channelName+'&playlist='+playlistId)
+			thumb=(_resdir+'/media/playAll.png')
+			temp=createButton(action=action,title='Play All', thumb=thumb,\
+				icon=thumb,fanart=thumb,is_folder=False)
+			listing.append(temp)
 			# for each video in the playlist array
 			for item in self.playlistCache[channelName][playlistId]['array']:
 				# set the title to the cached playlist title
@@ -648,7 +649,7 @@ class YoutubeTV():
 		# create the progress bar
 		progressDialog=xbmcgui.DialogProgress()
 		# check the timer on the username
-		if self.checkTimer(userName) != True:
+		if self.checkTimer(userName,'refreshDelay') != True:
 			# if the timer is false then time is not up and use the cached version
 			return self.cache[userName]
 		# get the youtube users webpage
@@ -963,6 +964,31 @@ def play_video(path):
 	play_item = xbmcgui.ListItem(path=path)
 	# Pass the item to the Kodi player.
 	xbmcplugin.setResolvedUrl(_handle, True, listitem=play_item)
+def play_all(arrayOfObjects):
+	# create the playlist
+	playlist= xbmc.PlayList(xbmc.PLAYLIST_VIDEO)
+	index=1
+	# for each item in the playlist
+	for item in arrayOfObjects:
+		path=item['video']
+		# the path to let videos be played by the youtube plugin
+		youtubePath='plugin://plugin.video.youtube/?action=play_video&videoid='
+		# remove the full webaddress to make youtube plugin work correctly
+		path=path.replace('https://youtube.com/watch?v=','')
+		# also check for partial webaddresses we only need the video id
+		path=path.replace('watch?v=','')
+		# add youtube path to path to make videos play with the kodi youtube plugin
+		path=youtubePath+path
+		# create listitem to insert in the playlist
+		list_item = xbmcgui.ListItem(label=item['name'])
+		#list_item.setInfo('video', {'title':title , 'genre':'menu' })
+		list_item.setInfo('video', item)
+		list_item.setArt(item)
+		list_item.setProperty('IsPlayable', 'true')
+		# add item to the playlist
+		playlist.add(path,list_item,index)
+		# increment the playlist index
+		index+=1
 
 def router(paramstring):
 	"""
@@ -999,6 +1025,9 @@ def router(paramstring):
 		elif params['action'] == 'viewPlaylist':
 			debug.add('action=viewPlaylist was activated in router')
 			session.grabPlaylist(params['playlist'],params['channel'])
+		elif params['action'] == 'playAll':
+			# play all of the videos in a playlist
+			play_all(session.playlistCache[params['channel']][params['playlist']]['array'])
 		elif params['action'] == 'removeChannel':
 			debug.add('action=removeChannel was activated in router')
 			# remove the channel from cache and channel list
