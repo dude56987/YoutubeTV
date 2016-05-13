@@ -28,11 +28,11 @@ class masterDebug():
 	def __init__(self,debug=True):
 		self.debug=debug
 		self.text=[]
-		if debug==True:
+		if self.debug==True:
 			self.banner(' PYTHON DEBUG ')
 	def add(self,title=None,content=None):
 		# check if debug is disabled
-		if debug==False:
+		if self.debug==False:
 			return
 		# - All arguments given here are casted to strings
 		# if user gives two arguements the first is considered the title
@@ -50,7 +50,7 @@ class masterDebug():
 		return self.text
 	def banner(self,titleString=None):
 		# check if debug is disabled
-		if debug==False:
+		if self.debug==False:
 			return
 		if titleString != None:
 			title=str(titleString)
@@ -62,7 +62,7 @@ class masterDebug():
 			print('#'*80)
 	def display(self):
 		# check if debug is disabled
-		if debug==False:
+		if self.debug==False:
 			return
 		# draw banner divider
 		self.banner(' PYTHON DEBUG ')
