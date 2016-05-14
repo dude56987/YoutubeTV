@@ -109,6 +109,8 @@ class YoutubeTV():
 		self.channelCache=self.loadConfig('channelCache','dict')
 		# playlist cache
 		self.playlistCache=self.loadConfig('playlistCache','dict')
+		# playlist cache
+		self.webCache=self.loadConfig('webCache','dict')
 		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
 		# update the channels
 		for channel in self.channels:
@@ -227,8 +229,14 @@ class YoutubeTV():
 		'''
 		# remove the cached channel information
 		self.cache[channelUsername]=[]
-		# delete the timer value
+		# delete the channel timer
 		del self.timer[channelUsername]
+		# delete the channel playlist timers
+		for timer in self.timer.keys():
+			if channelUsername+':' in timer:
+				del self.timer[timer]
+		# delete the playlists for the channel
+		del self.playlistCache[channelUsername]
 		# grab new channel information
 		self.getUserVideos(channelUsername)
 	def removeChannel(self,channelUsername):
@@ -246,8 +254,14 @@ class YoutubeTV():
 			self.channels.remove(channelUsername)
 			# remove the channel from the cache
 			del self.cache[channelUsername]
-			# remove timers for the channels
+			# delete the playlists for the channel
+			del self.playlistCache[channelUsername]
+			# delte the channel timer
 			del self.timer[channelUsername]
+			# delete the channel playlist timers
+			for timer in self.timer.keys():
+				if channelUsername+':' in timer:
+					del self.timer[timer]
 		# save the changes to the data
 		self.saveConfig('channels',self.channels)
 		self.saveConfig('cache',self.cache)
@@ -288,6 +302,16 @@ class YoutubeTV():
 			# save timer changes
 			self.saveConfig('timer',self.timer)
 			return True
+	def cleanText(self,inputText):
+		'''
+		Takes inputText and clean up the html special charcters.
+
+		:return string
+		'''
+		# convert all html entities in the title to unicode charcters
+		inputText=inputText.decode('utf8')
+		inputText=HTMLParser.HTMLParser().unescape(inputText)
+		return inputText
 	def refreshCache(self):
 		'''
 		Refresh all channels stored in the plugin cache.
@@ -333,6 +357,11 @@ class YoutubeTV():
 				if '/playlist?list=' in line:
 					debug.add('found a playlist on page',line)
 					paths.append(line.replace('/playlist?list=',''))
+			# create the progress bar
+			progressDialog=xbmcgui.DialogProgress()
+			progressDialog.create(('Reading playlists for '+channelName),'Processing...')
+			progressTotal=float(len(paths))
+			progressCurrent=0.0
 			# for each playlist id
 			for playlistId in paths:
 				# if the playlist does not exist yet
@@ -344,6 +373,12 @@ class YoutubeTV():
 					# update the playlist title and grab all videos in the
 					# playlist to store them in the cache
 					self.grabPlaylist(playlistId,channelName,display=None)
+				# grab the title of the playlist last being worked on
+				title=self.playlistCache[channelName][playlistId]['name']
+				# draw the progress onscreen 
+				progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
+				# increment the progress
+				progressCurrent+=1
 		# if the function should display items onscreen
 		if display==True:
 			# create a list for all the buttons to be stored in before
@@ -394,12 +429,14 @@ class YoutubeTV():
 			title=findText('<title>','</title>',playlistList)
 			# replace the youtube part in the title text
 			title=title.replace('- YouTube','')
+			title=self.cleanText(title)
 			debug.add('playlist title',title)
 			# set the title in the cache
 			self.playlistCache[channelName][playlistId]['name']=title
 			# for each item in the playlist cache the data
 			for item in playlistList.split('<tr class="pl-video yt-uix-tile'):
 				title=findText('data-title="','"',item)
+				title=self.cleanText(title)
 				video=findText('data-video-id="','"',item)
 				thumb=findText('data-thumb="','"',item)
 				# if video id is not a dupe and does not contain any html
@@ -477,7 +514,7 @@ class YoutubeTV():
 		# searches on youtube can be placed with the below string
 		# add your search terms at the end of the string
 		#"https://www.youtube.com/results?search_query="
-		searchResults=self.grabWebpage("https://www.youtube.com/results?search_query="+searchString)
+		searchResults=self.cacheWebpage("https://www.youtube.com/results?search_query="+searchString)
 		# to do next page you can add page=2 to the request
 		
 		# users can be found by scanning the search results for
@@ -549,7 +586,7 @@ class YoutubeTV():
 						title=title[1].split('"')
 						title=title[0]
 						# clean html entities from title
-						title=title.replace('&amp;','&')
+						title=self.cleanText(title)
 						# add channel information to the channel cache
 						self.channelCache[channel]={}
 						# add title and icon
@@ -581,6 +618,33 @@ class YoutubeTV():
 			# also strip endlines to avoid garbage
 			temp+=(line.strip())
 		return temp
+	def cacheWebpage(self,url):
+		# check limit of webcache
+		webCacheLimit=int(addonObject.getSetting('webCacheLimit'))
+		# when there are more items in the webcache than the
+		# limit
+		while len(self.webCache)>webCacheLimit:
+			# grab the key of the first item
+			key=self.webCache.keys()[0]
+			# delete the oldest item
+			del self.webCache[key]
+			del self.timer[key]
+		# check the timer for this specific webpage
+		if self.checkTimer(url,'webpageRefreshDelay') or\
+		url not in self.webCache.keys():
+			# get the youtube users webpage
+			webpageText=urllib.urlopen(url)
+			temp=''
+			for line in webpageText:
+				# mash everything into a string because they use code obscification
+				# also strip endlines to avoid garbage
+				temp+=(line.strip())
+			# place this webpage text in the cache
+			self.webCache[url]=temp
+		# update the settings in the saved cache after the loops
+		self.saveConfig('webCache',self.webCache)
+		# return the cached url
+		return self.webCache[url]
 	def addVideo(self,channel,newVideo):
 		'''channel is a string, item is a dict'''
 		if len(self.cache[channel])<1:
@@ -677,8 +741,7 @@ class YoutubeTV():
 				thumb=findText('src="','"',line)
 				title=findText('dir="ltr" title="','"',line)
 				# convert all html entities in the title to unicode charcters
-				title=title.decode('utf8')
-				title=HTMLParser.HTMLParser().unescape(title)
+				title=self.cleanText(title)
 				# begin building dict to add to the category array
 				temp={}
 				# set the video url to the found url
