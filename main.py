@@ -246,10 +246,7 @@ class YoutubeTV():
 		:return None
 		'''
 		# check if channel exists in channels
-		if channelUsername not in self.channels:
-			# channel does not exist
-			return
-		else:
+		if channelUsername in self.channels:
 			# remove the channel from the channels array
 			self.channels.remove(channelUsername)
 			# remove the channel from the cache
