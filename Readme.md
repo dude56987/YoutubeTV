@@ -1,15 +1,33 @@
-# Simple example plugin for Kodi mediacenter
+YoutubeTV
+=========
 
-This is a simple yet fully functional example of a video plugin for [Kodi](http://kodi.tv) mediacenter.
-Please read the comments in the plugin code for more details.
-An installable .zip can be downloaded from "[Releases](https://github.com/romanvm/plugin.video.example/releases)" tab.
+YoutubeTV is a Kodi addon that allows you to view Youtube channels.
 
-**Note**: the purpose of this example plugin is to show you how to organize and play your media content in Kodi.
-The methods of obtaining such content, for example parsing websites or working with JSON-RPC APIs,
-are beyond the scope of this example.
+## Features
 
-The plugin uses a pre-defined set of free sample videos from [www.vidsplay.com](http://www.vidsplay.com/).
+- This plugin does not require you to login in order to add channels.
+- You can view the latest episodes in a channel. 
+- You can view all of the channels playlists.
+- You can adjust how much caching the plugin does in the settings.
+- License: [GPL v.3](http://www.gnu.org/copyleft/gpl.html)
 
-**Warning**: the "master" branch is only compatible with Kody 16.0 (Jarvis) and above. For older versions see the "legacy" branch.
+##Usage
 
-License: [GPL v.3](http://www.gnu.org/copyleft/gpl.html)
+###Basic
+
+1. Open the plugin.
+2. Click the search button on the main menu.
+3. Type the channel you want to search for.
+4. Select the channel in the search results to add it.
+
+###Removing Channels
+
+1. Highlight the channel in the main menu you want to remove
+2. Right click with the mouse OR highlight the channel and press c on the keyboard
+3. Select "Remove channelName" where channelName is the name of the highlighted channel
+
+###Reset Channels
+
+1. Highlight the channel in the main menu you want to remove
+2. Right click with the mouse OR highlight the channel and press c on the keyboard
+3. Select "Reset Channel"
