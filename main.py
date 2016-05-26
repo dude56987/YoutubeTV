@@ -89,7 +89,7 @@ class masterDebug():
 		# draw bottom divider
 		self.banner()
 # create master debug object
-debug=masterDebug(True)
+debug=masterDebug(False)
 # findText
 def findText(start,end,searchString):
 	'''
@@ -251,8 +251,10 @@ class YoutubeTV():
 		for timer in self.timer.keys():
 			if channelUsername+':' in timer:
 				del self.timer[timer]
-		# delete the playlists for the channel
-		del self.playlistCache[channelUsername]
+		# if channel has playlists in cache
+		if channelUsername in self.playlistCache.keys():
+			# delete the playlists for the channel
+			del self.playlistCache[channelUsername]
 		# grab new channel information
 		self.getUserVideos(channelUsername)
 	def removeChannel(self,channelUsername):
@@ -267,8 +269,10 @@ class YoutubeTV():
 			self.channels.remove(channelUsername)
 			# remove the channel from the cache
 			del self.cache[channelUsername]
-			# delete the playlists for the channel
-			del self.playlistCache[channelUsername]
+			# if channel has playlists in cache
+			if channelUsername in self.playlistCache.keys():
+				# delete the playlists for the channel
+				del self.playlistCache[channelUsername]
 			# delte the channel timer
 			del self.timer[channelUsername]
 			# delete the channel playlist timers
@@ -362,7 +366,7 @@ class YoutubeTV():
 			if channelName not in self.playlistCache.keys():
 				self.playlistCache[channelName]={}
 			# grab a list of all the playlists for this channel
-			results=self.grabWebpage("https://www.youtube.com/user/"+channelName+"/playlists")
+			results=self.grabWebpage("https://www.youtube.com"+channelName+"/playlists")
 			results=results.split('"')
 			paths=[]
 			# create an array of all the playlist ids
@@ -385,7 +389,7 @@ class YoutubeTV():
 					self.playlistCache[channelName][playlistId]['array']=[]
 					# update the playlist title and grab all videos in the
 					# playlist to store them in the cache
-					self.grabPlaylist(playlistId,channelName,display=None)
+					self.grabPlaylist(playlistId,channelName,display=None,firstOnly=True)
 				# grab the title of the playlist last being worked on
 				title=self.playlistCache[channelName][playlistId]['name']
 				# draw the progress onscreen 
@@ -421,7 +425,7 @@ class YoutubeTV():
 			xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
 			# Finish creating a virtual folder.
 			xbmcplugin.endOfDirectory(_handle)
-	def grabPlaylist(self,playlistId,channelName,display=True):
+	def grabPlaylist(self,playlistId,channelName,display=True,firstOnly=False):
 		'''
 		Grab the playlist items for a playlist "playlistId" that is a 
 		playlist of the "channelName"
@@ -434,8 +438,13 @@ class YoutubeTV():
 
 		:return array
 		'''
-		# if the timer is true then the playlist needs refreshed
-		if self.checkTimer(channelName+":"+playlistId,'playlistDelay') is True:
+		if firstOnly==True:
+			# if firstonly is set dont check the timer, just grab the first value
+			tempTimerValue=True
+		else:
+			# if the timer is true then the playlist needs refreshed
+			tempTimerValue=self.checkTimer(channelName+":"+playlistId,'playlistDelay')
+		if tempTimerValue:
 			# create the runplugin button to list the playlist
 			playlistList=self.grabWebpage('https://www.youtube.com/playlist?list='+playlistId)
 			# grab title of the playlist from the downloaded file
@@ -443,7 +452,6 @@ class YoutubeTV():
 			# replace the youtube part in the title text
 			title=title.replace('- YouTube','')
 			title=self.cleanText(title)
-			debug.add('playlist title',title)
 			# set the title in the cache
 			self.playlistCache[channelName][playlistId]['name']=title
 			# for each item in the playlist cache the data
@@ -472,6 +480,11 @@ class YoutubeTV():
 					temp['genre']='youtube'
 					# add the found playlist items to the playlist array value
 					self.playlistCache[channelName][playlistId]['array'].append(temp)
+					if firstOnly==True:
+						# if firstonly is set only cache the first video
+						# and return the function
+						self.saveConfig('playlistCache',self.playlistCache)
+						return
 			# save videos to the playlistcache
 			self.saveConfig('playlistCache',self.playlistCache)
 		# if display is set to true then draw this playlist onscreen
@@ -535,16 +548,38 @@ class YoutubeTV():
 		searchResults=searchResults.split('"')	
 		temp=[]
 		for link in searchResults:
+			link = link.replace('https://www.youtube.com','')
+			link = link.replace('https://youtube.com','')
+			link = link.strip()
 			# if the link is a link to a channel
 			if '/user/' in link:
-				# remove the user prefix to leave only the username
-				link = link.replace('/user/','')
+				link=link[link.find('/user/'):]
+				debug.add('cut user link',link)
 				# do not add duplicate entries found in the search
 				if link not in temp:
 					# add the link 
 					temp.append(link)
+			elif '/channel/' in link:
+				link=link[link.find('/channel/'):]
+				# do not add duplicate entries found in the search
+				if link not in temp:
+					# add the link 
+					temp.append(link)
+		# create and check the blocklist
+		blocklist=[]
+		blocklist.append('doubleclick.net')
+		blocklist.append('https://')
+		blocklist.append('http://')
+		blocklist.append('><')
+		blocklist.append('/?')
+		# check for and remove blocklist items from searchResults
+		for link in temp:
+			for blockItem in blocklist:
+				if blockItem in link:
+					temp.remove(link)
 		# search results is now a array of usernames
-		searchResults=temp
+		# cut first 9 items because they are youtube menus
+		searchResults=temp[9:]
 		# we can take the usernames and use them to grab the user channel information
 		# listing for creating directory
 		listing=[]
@@ -567,7 +602,7 @@ class YoutubeTV():
 				# user channel information can be found by downloading the
 				# user channel page with
 				#"https://youtube.com/user/"userName
-				channelPage=self.grabWebpage("https://www.youtube.com/user/"+channel)
+				channelPage=self.grabWebpage("https://www.youtube.com"+channel)
 				# jerk out the banner image from the downloaded user webpage
 				try:
 					temp=channelPage.split('.hd-banner-image {background-image: url(//')
@@ -623,6 +658,7 @@ class YoutubeTV():
 		# Finish creating a virtual folder.
 		xbmcplugin.endOfDirectory(_handle)
 	def grabWebpage(self,url):
+		debug.add('grab url',url)
 		# get the youtube users webpage
 		webpageText=urllib.urlopen(url)
 		temp=''
@@ -730,7 +766,7 @@ class YoutubeTV():
 			# if the timer is false then time is not up and use the cached version
 			return self.cache[userName]
 		# get the youtube users webpage
-		temp=self.grabWebpage("https://www.youtube.com/user/"+str(userName)+"/videos")
+		temp=self.grabWebpage("https://www.youtube.com"+str(userName)+"/videos")
 		# create an array to hold the video watch strings
 		videos=[]
 		downloadMethod='youtubetv'
