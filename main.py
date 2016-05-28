@@ -33,64 +33,7 @@ import subprocess
 import datetime
 import pickle
 import HTMLParser
-###################
-class masterDebug():
-	'''
-	A master debuging object to handle all debugging output
-	
-	If given a value of False debugging will be disabled.
-	e.g. "debug=masterDebug(False)"
-	'''
-	def __init__(self,debug=True):
-		self.debug=debug
-		self.text=[]
-		if self.debug==True:
-			self.banner(' PYTHON DEBUG ')
-	def add(self,title=None,content=None):
-		# check if debug is disabled
-		if self.debug==False:
-			return
-		# - All arguments given here are casted to strings
-		# if user gives two arguements the first is considered the title
-		if content!= None:
-			# append the content with a title
-			self.text.append(str(title)+' : '+str(content))
-			print(str(title)+' : '+str(content))
-		else:
-			# otherwise add the first argument as a debug line
-			self.text.append(str(title))
-			print(str(title))
-
-	def get(self):
-		# return the text array
-		return self.text
-	def banner(self,titleString=None):
-		# check if debug is disabled
-		if self.debug==False:
-			return
-		if titleString != None:
-			title=str(titleString)
-			edge='#'*((80-len(title))/2)
-			print('#'*80)
-			print(edge+title+edge)
-			print('#'*80)
-		else:
-			print('#'*80)
-	def display(self):
-		# check if debug is disabled
-		if self.debug==False:
-			return
-		# draw banner divider
-		self.banner(' PYTHON DEBUG ')
-		# write each line of the debug
-		for line in self.text:
-			# add debug to each line to use grep for error searching
-			print('DEBUG:'+str(line))
-		# draw bottom divider
-		self.banner()
-# create master debug object
-debug=masterDebug(False)
-# findText
+################################################################################
 def findText(start,end,searchString):
 	'''
 	Grab text between start and end strings within the
@@ -108,6 +51,63 @@ def findText(start,end,searchString):
 	temp=firstCut[:end]
 	# return the middle
 	return temp
+################################################################################
+def saveFile(fileName,content):
+	'''
+	Save a file with the path fileName containing the content content.
+
+	:return None
+	'''
+	debug.add('savefile activated')
+	# create the basepath using special protocol
+	basePath=('special://userdata/addon_data/'+_id+'/')
+	basePath=xbmc.translatePath(basePath)
+	debug.add('basePath',basePath)
+	# if the base config directory does not exist
+	if os.path.exists(basePath) is False:
+		# create the base config path 
+		thumbnail=subprocess.Popen(['mkdir', '-p',basePath])
+	# open the file to write
+	fileObject=open((basePath+fileName),'w')
+	# write file content
+	fileObject.write(content)
+	# close the file
+	fileObject.close()
+################################################################################
+def loadFile(fileName):
+	'''
+	Load a file with the path fileName.
+	
+	Returns the loaded file as a string or if the
+	file fails to load return False.
+
+	:return bool/string
+	'''
+	debug.add('loadFile activated')
+	# this is where all files related to the plugin will be stored
+	basePath=('special://userdata/addon_data/'+_id+'/')
+	basePath=xbmc.translatePath(basePath)
+	debug.add('basePath',basePath)
+	# concat the basepath and file fileName for the file to load
+	path=(basePath+fileName)
+	debug.add('path',path)
+	# check if the config file exists already
+	if os.path.exists(path):
+		# open the file to write
+		fileObject=open(path,'r')
+		# temp string to hold file content
+		temp=''
+		# read each line into a string
+		for line in fileObject:
+			temp+=line
+		# return the contents of the file as a string
+		return temp
+		# return the string text of the file
+		#return fileObject.read()
+	else:
+		# return false if the file is not found
+		return False
+################################################################################
 # session class for youtubeTV session starting
 class YoutubeTV():
 	def __init__(self):
@@ -116,9 +116,11 @@ class YoutubeTV():
 		cache functionality and automated work.
 		'''
 		# create the cache for this session
-		self.cache=self.loadConfig('cache','dict')
+		#self.cache=self.loadConfig('cache','dict')
+		self.cache=tables.table(_datadir+'cache/')
 		# cache timer
-		self.timer=self.loadConfig('timer','dict')
+		#self.timer=self.loadConfig('timer','dict')
+		self.timer=tables.table(_datadir+'timer/')
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
 		# load the channels cache
@@ -131,56 +133,12 @@ class YoutubeTV():
 		# update the channels
 		for channel in self.channels:
 			# if channel has no values
-			if channel not in self.cache.keys():
+			if channel not in self.cache.names:
 				# create an array to sit in it
-				self.cache[channel]=[]	
+				#self.cache[channel]=[]	
+				self.cache.saveValue(channel,list())
 				#update the channel videos
 				self.getUserVideos(channel)
-	def saveFile(self,fileName,content):
-		'''
-		Save a file with the path fileName containing the content content.
-
-		:return None
-		'''
-		# open the file to write
-		fileObject=open(('~/.kodi/userdata/addon_data/'+_id+'/'+fileName),'w')
-		# write file content
-		fileObject.write(content)
-		# close the file
-		fileObject.close()
-	def loadFile(self,fileName):
-		'''
-		Load a file with the path fileName.
-		
-		Returns the loaded file as a string or if the
-		file fails to load return False.
-
-		:return bool/string
-		'''
-		# this is where all files related to the plugin will be stored
-		basePath=('~/.kodi/userdata/addon_data/'+_id+'/')
-		# if the base config directory does not exist
-		if os.path.exists(basePath) != True:
-			# create the base config path 
-			thumbnail=subprocess.Popen(['mkdir', '-p',basePath])
-		# concat the basepath and file fileName for the file to load
-		path=(basePath+fileName)
-		# check if the config file exists already
-		if os.path.exists(path):
-			# open the file to write
-			fileObject=open(path,'r')
-			# temp string to hold file content
-			temp=''
-			# read each line into a string
-			for line in fileObject:
-				temp+=line
-			# return the contents of the file as a string
-			return temp
-			# return the string text of the file
-			#return fileObject.read()
-		else:
-			# return false if the file is not found
-			return False
 	def saveConfig(self,config,newValue):
 		'''
 		Convert objects into strings and save in xbmc settings
@@ -228,7 +186,8 @@ class YoutubeTV():
 		if channelUsername not in self.channels:
 			# add username to channels
 			self.channels.append(channelUsername)
-			self.cache[channelUsername]=[]
+			#self.cache[channelUsername]=[]
+			self.cache.saveValue(channelUsername,list())
 			# also update the things in the channel
 			self.getUserVideos(channelUsername)
 		else:
@@ -244,19 +203,9 @@ class YoutubeTV():
 		:return None
 		'''
 		# remove the cached channel information
-		self.cache[channelUsername]=[]
-		# delete the channel timer
-		del self.timer[channelUsername]
-		# delete the channel playlist timers
-		for timer in self.timer.keys():
-			if channelUsername+':' in timer:
-				del self.timer[timer]
-		# if channel has playlists in cache
-		if channelUsername in self.playlistCache.keys():
-			# delete the playlists for the channel
-			del self.playlistCache[channelUsername]
-		# grab new channel information
-		self.getUserVideos(channelUsername)
+		self.removeChannel(channelUsername)
+		# add the channel back
+		self.addChannel(channelUsername)
 	def removeChannel(self,channelUsername):
 		'''
 		Remove channel with username channelUsername.
@@ -268,21 +217,28 @@ class YoutubeTV():
 			# remove the channel from the channels array
 			self.channels.remove(channelUsername)
 			# remove the channel from the cache
-			del self.cache[channelUsername]
+			#del self.cache[channelUsername]
+			self.cache.deleteValue(channelUsername)
 			# if channel has playlists in cache
 			if channelUsername in self.playlistCache.keys():
 				# delete the playlists for the channel
 				del self.playlistCache[channelUsername]
 			# delte the channel timer
-			del self.timer[channelUsername]
+			#del self.timer[channelUsername]
+			self.timer.deleteValue(channelUsername)
 			# delete the channel playlist timers
-			for timer in self.timer.keys():
+			#for timer in self.timer.keys():
+			killArray=[]
+			for timer in self.timer.names.keys():
 				if channelUsername+':' in timer:
-					del self.timer[timer]
+					killArray.append(timer)
+					#del self.timer[timer]
+			for item in killArray:
+				self.timer.deleteValue(item)
 		# save the changes to the data
 		self.saveConfig('channels',self.channels)
-		self.saveConfig('cache',self.cache)
-		self.saveConfig('timer',self.timer)
+		#self.saveConfig('cache',self.cache)
+		#self.saveConfig('timer',self.timer)
 	def checkTimer(self,userName,delay):
 		'''
 		Checks timer on username to see if videos in that channel have been
@@ -297,15 +253,19 @@ class YoutubeTV():
 		# grab the timer value, and cast the value to a int
 		refreshDelay=addonObject.getSetting(delay)
 		refreshDelay=int(refreshDelay)
-		if userName in self.timer.keys():
+		#if userName in self.timer.keys():
+		if userName in self.timer.names:
 			# update videos if videos were updated more than an hour ago
-			if self.timer[userName]<datetime.datetime.now():
+			#if self.timer[userName]<datetime.datetime.now():
+			if self.timer.loadValue(userName)<datetime.datetime.now():
 				# if the timer is over an hour old everything needs updated
 				#############
 				# update the timer to only update one hour from now
-				self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=refreshDelay)
+				#self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=refreshDelay)
+				tempTime=datetime.datetime.now()+datetime.timedelta(hours=refreshDelay)
+				self.timer.saveValue(userName,tempTime)
 				# save timer changes
-				self.saveConfig('timer',self.timer)
+				#self.saveConfig('timer',self.timer)
 				return True
 			else:
 				# the timer has been reset within the last hour
@@ -315,9 +275,11 @@ class YoutubeTV():
 			# this means no cache exists, and all videos need updated
 			#############
 			# update the timer to only update one hour from now
-			self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
+			#self.timer[userName]=datetime.datetime.now()+datetime.timedelta(hours=1)
+			tempTime=datetime.datetime.now()+datetime.timedelta(hours=1)
+			self.timer.saveValue(userName,tempTime)
 			# save timer changes
-			self.saveConfig('timer',self.timer)
+			#self.saveConfig('timer',self.timer)
 			return True
 	def cleanText(self,inputText):
 		'''
@@ -325,10 +287,20 @@ class YoutubeTV():
 
 		:return string
 		'''
-		# convert all html entities in the title to unicode charcters
+		# decode the inputText
 		inputText=inputText.decode('utf8')
-		inputText=HTMLParser.HTMLParser().unescape(inputText)
-		return inputText
+		okList='abcdefghijklmnopqrstuvwxyz'
+		okList+='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+		okList+="1234567890!@#$%^&*()-_+=[]{}/' "
+		okList+=':;"?.,><`~|'
+		tempString=''
+		# ignore all characters not in the ok list
+		for character in inputText:
+			if character in okList:
+				tempString+=character
+		# convert all html entities in the title to unicode charcters
+		tempString=HTMLParser.HTMLParser().unescape(tempString)
+		return tempString
 	def refreshCache(self):
 		'''
 		Refresh all channels stored in the plugin cache.
@@ -677,7 +649,8 @@ class YoutubeTV():
 			key=self.webCache.keys()[0]
 			# delete the oldest item
 			del self.webCache[key]
-			del self.timer[key]
+			#del self.timer[key]
+			self.timer.deleteValue(key)
 		# check the timer for this specific webpage
 		if self.checkTimer(url,'webpageRefreshDelay') or\
 		url not in self.webCache.keys():
@@ -696,11 +669,13 @@ class YoutubeTV():
 		return self.webCache[url]
 	def addVideo(self,channel,newVideo):
 		'''channel is a string, item is a dict'''
-		if len(self.cache[channel])<1:
+		#if len(self.cache[channel])<1:
+		tempCache=self.cache.loadValue(channel)
+		if len(self.cache.names)<1:
 			# set found time for video
 			newVideo['foundTime']=1
 			# if the cache has no existing videos then add the video
-			self.cache[channel].append(newVideo)
+			tempCache.append(newVideo)
 			# then exit the function
 			return
 		# check for buttons that are not videos
@@ -709,7 +684,7 @@ class YoutubeTV():
 			return
 		# create videoCounterHigh to store the highest counter value for the video
 		videoCounterHigh=0
-		for oldVideo in self.cache[channel]:
+		for oldVideo in tempCache:
 			# check for duplicates
 			if newVideo['name'] == oldVideo['name'] :
 				# duplicate found exit function
@@ -733,7 +708,7 @@ class YoutubeTV():
 		# so place all the rest of the variables on the right
 		found=False
 		# search for placement of video in existing cached videos
-		for oldVideo in self.cache[channel]:
+		for oldVideo in tempCache:
 			debug.banner()
 			# for each video in the channels cache
 			if found:
@@ -757,14 +732,16 @@ class YoutubeTV():
 			right.append(newVideo)
 		# add the two arrays together to get the new list
 		# that has the video correctly placed inside
-		self.cache[channel]=list(left+right)
+		tempCache=list(left+right)
+		self.cache.saveValue(channel,tempCache)
 	def getUserVideos(self,userName):
 		# create the progress bar
 		progressDialog=xbmcgui.DialogProgress()
 		# check the timer on the username
 		if self.checkTimer(userName,'refreshDelay') != True:
 			# if the timer is false then time is not up and use the cached version
-			return self.cache[userName]
+			#return self.cache[userName]
+			return self.cache.loadValue(userName)
 		# get the youtube users webpage
 		temp=self.grabWebpage("https://www.youtube.com"+str(userName)+"/videos")
 		# create an array to hold the video watch strings
@@ -850,7 +827,8 @@ class YoutubeTV():
 				progressCurrent+=1
 				# build a list of existing video urls in cache to check aginst
 				videoList=[] 
-				for videoDict in self.cache[userName]:
+				#for videoDict in self.cache[userName]:
+				for videoDict in self.cache.loadValue(userName):
 					# add the url of each video in the cache already
 					# to the videoList array for checking
 					videoList.append(videoDict['video'])
@@ -882,16 +860,47 @@ class YoutubeTV():
 		# cast videolimit from a string to a int
 		videoLimit=int(videoLimit)
 		# ignore videoLimit if it is set to 0
-		if videoLimit!=0:
+		#if videoLimit!=0:
 			# trim videos to the video limit
-			while len(self.cache[userName])>videoLimit:
+			#while len(self.cache[userName])>videoLimit:
+			#while len(self.cache[userName])>videoLimit:
 				# pop off a single item from the end of
 				# the array
-				self.cache[userName].pop()
+				#self.cache[userName].pop()
 		# update the settings in the saved cache after the loops
-		self.saveConfig('cache',self.cache)
+		#self.saveConfig('cache',self.cache)
 		# return the cached videos
-		return self.cache[userName]
+		#return self.cache[userName]
+		return self.cache.loadValue(userName)
+	def backup(self):
+		# backup the channels saved in the addon
+
+		tempTable=tables.table(_datadir)
+		tempTable.saveValue('backup',self.channels)
+		#saveFile('channels.backup',pickle.dumps(self.channels))
+	def restore(self):
+		# clear out caches prior to restore
+		# this prevents hanging cache data
+		self.saveConfig('channels',[])
+		self.channels=[]
+		self.saveConfig('playlistCache',{})
+		self.playlistCache={}
+		#self.saveConfig('cache',{})
+		#self.cache={}
+		self.cache=tables.table(_datadir+'cache/')
+		#self.saveConfig('timer',{})
+		#self.timer={}
+		self.timer=tables.table(_datadir+'timer/')
+		# restore the channels saved from the last backup
+		#temp=loadFile('channels.backup')
+		#temp=pickle.loads(temp)
+		#self.channels=temp
+		# save the restored channels
+		#self.saveConfig('channels',self.channels)
+		# load up the backup
+		tempTable=tables.table(_datadir)
+		self.channels=tempTable.loadValue('backup')
+		tempTable.saveValue('backup')
 ################################################################################
 def createButton(action='',title='default',thumb='default',icon='default',fanart='default',is_folder=True):
 	'''Create a list item to be created that is used as a menu button'''
@@ -903,21 +912,24 @@ def createButton(action='',title='default',thumb='default',icon='default',fanart
 	listingItem=(url, list_item, is_folder)
 	return listingItem
 ################################################################################
-# create addon object
-#addonObject=xbmcaddon.Addon(id="plugin.video.youtubetv")
-#addonObject=xbmcaddon.Addon()
 # Get the plugin url in plugin:// notation.
 _id= 'plugin.video.youtubetv'
 _url = sys.argv[0]
 _resdir = "special://home/addons/"+_id+"/resources"
+# convert resource directory to a real directory path
+_resdir=xbmc.translatePath(_resdir)
+_datadir=('special://userdata/addon_data/'+_id+'/')
+_datadir=xbmc.translatePath(_datadir)
 # add the resources directory to the sys path to import libaries
 sys.path.append(_resdir+'/lib/')
-#import youtubetv
+# import localy stored libaries
+import tables
+import masterdebug
+# initalize the debugging
+debug=masterdebug.init()
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
 # load the youtube videos on that channel from
-#addonObject=xbmcaddon.Addon(str(_handle))
-#addonObject=xbmcaddon.Addon(str('plugin.video.youtubetv'))
 addonObject=xbmcaddon.Addon(id=str(_id))
 session=YoutubeTV()
 # Free sample videos are provided by www.vidsplay.com
@@ -940,7 +952,9 @@ def get_categories():
 	# update the videos in the cache for each category
 	#session.refreshCache()
 	#return session.channels
-	return session.cache.keys()
+	#return session.cache.keys()
+	debug.add('session.cache.names',session.cache.names)
+	return session.cache.names
 
 def get_videos(category):
 	"""
@@ -970,6 +984,7 @@ def list_categories():
 		# if a category has nothing in it then no category will be listed in the interface
 		if len(category)==0:
 			return
+		debug.add('ERROR HELP', category)
 		# store video title for use in this scope
 		title=session.channelCache[category]['title']
 		# Create a list item with a text label and a thumbnail image.
@@ -986,7 +1001,9 @@ def list_categories():
 		# In a real-life plugin you need to set each image accordingly.
 		list_item.setArt({'thumb': session.channelCache[category]['icon'],\
 				  'icon': session.channelCache[category]['icon'],\
-				  'fanart': VIDEOS[category][0]['thumb']})
+				  'fanart': session.channelCache[category]['fanArt']})
+				  #'fanart': session.cache.loadValue(category)[0]['thumb']})
+				  #'fanart': session.channelCache[category]['fanart']})
 		# Set additional info for the list item.
 		# Here we use a category name for both properties for for simplicity's sake.
 		# setInfo allows to set various information for an item.
@@ -1116,7 +1133,7 @@ def router(paramstring):
 	if params:
 		if params['action'] == 'listing':
 			debug.add('action=listing was activated in router')
-			if params['category'] in session.cache.keys():
+			if params['category'] in session.cache.names.keys():
 				# Display the list of videos in a provided category.
 				list_videos(params['category'])
 			else:
@@ -1156,6 +1173,14 @@ def router(paramstring):
 			# check for blank strings and ignore them
 			if len(params['value']) > 0:
 				session.addChannel(params['value'])
+			# refresh the view
+			list_categories()
+		elif params['action'] == 'backupChannels':
+			# backup channels
+			session.backup()
+		elif params['action'] == 'restoreChannels':
+			# restore channels
+			session.restore()
 			# refresh the view
 			list_categories()
 		elif params['action'] == 'searchChannel':

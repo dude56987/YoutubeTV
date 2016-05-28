@@ -10,11 +10,13 @@
 		<setting id='webpageRefreshDelay' type='number' default='1' label='Hours to delay redownloading webpages'/>
 		<setting id='webCacheLimit' type='number' default='8' label='Number of webpages to leave in the cache'/>
 		<!-- Invisible internal values for addon storage -->
-		<setting visible='false' id='cache' type='text' default=''/>
 		<setting visible='false' id='webCache' type='text' default=''/>
-		<setting visible='false' id='timer' type='text' default=''/>
 		<setting visible='false' id='channels' type='text' default=''/>
 		<setting visible='false' id='channelCache' type='text' default=''/>
 		<setting visible='false' id='playlistCache' type='text' default=''/>
+	</category>
+	<category label='Backup/Restore'>
+		<setting label='Backup' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=backupChannels)'/>
+		<setting label='Restore' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=restoreChannels)'/>
 	</category>
 </settings>
