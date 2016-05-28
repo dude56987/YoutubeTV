@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
 build: *.py *.md *.xml *.png resources/
+	# remove any existing builds
+	rm -v YoutubeTV.zip || echo "No existing builds to remove..."
 	# copy over plugin structure into a folder
 	mkdir -p plugin.video.youtubetv
 	cp *.py plugin.video.youtubetv
