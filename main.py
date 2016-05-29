@@ -860,18 +860,18 @@ class YoutubeTV():
 		# cast videolimit from a string to a int
 		videoLimit=int(videoLimit)
 		# ignore videoLimit if it is set to 0
-		#if videoLimit!=0:
+		if videoLimit!=0:
+			# load up the videos
+			tempVideoCache=self.cache.loadValue(userName)
 			# trim videos to the video limit
-			#while len(self.cache[userName])>videoLimit:
-			#while len(self.cache[userName])>videoLimit:
+			while len(tempVideoCache)>videoLimit:
 				# pop off a single item from the end of
 				# the array
-				#self.cache[userName].pop()
+				tempVideoCache.pop()
 		# update the settings in the saved cache after the loops
-		#self.saveConfig('cache',self.cache)
+		self.cache.saveValue(userName,tempVideoCache)
 		# return the cached videos
-		#return self.cache[userName]
-		return self.cache.loadValue(userName)
+		return tempVideoCache
 	def backup(self):
 		# backup the channels saved in the addon
 
