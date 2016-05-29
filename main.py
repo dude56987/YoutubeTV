@@ -603,6 +603,9 @@ class YoutubeTV():
 						icon=tag.split('src="')
 						icon=icon[1].split('"')
 						icon=icon[0]
+						# if a generated channel uses the other wierd icon format
+						if icon[:2]=='//':
+							icon='https:'+icon
 						# grab text in title attribute for channel title
 						title=tag.split('title="')
 						title=title[1].split('"')
@@ -621,8 +624,6 @@ class YoutubeTV():
 					thumb=icon,\
 					icon=icon,\
 					fanart=fanArt)
-
-
 			# add context menu actions
 			contextItems=[]
 			# remove category button
