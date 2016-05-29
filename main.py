@@ -58,11 +58,9 @@ def saveFile(fileName,content):
 
 	:return None
 	'''
-	debug.add('savefile activated')
 	# create the basepath using special protocol
 	basePath=('special://userdata/addon_data/'+_id+'/')
 	basePath=xbmc.translatePath(basePath)
-	debug.add('basePath',basePath)
 	# if the base config directory does not exist
 	if os.path.exists(basePath) is False:
 		# create the base config path 
@@ -83,14 +81,11 @@ def loadFile(fileName):
 
 	:return bool/string
 	'''
-	debug.add('loadFile activated')
 	# this is where all files related to the plugin will be stored
 	basePath=('special://userdata/addon_data/'+_id+'/')
 	basePath=xbmc.translatePath(basePath)
-	debug.add('basePath',basePath)
 	# concat the basepath and file fileName for the file to load
 	path=(basePath+fileName)
-	debug.add('path',path)
 	# check if the config file exists already
 	if os.path.exists(path):
 		# open the file to write
@@ -107,6 +102,13 @@ def loadFile(fileName):
 	else:
 		# return false if the file is not found
 		return False
+def popup(header,content):
+	'''
+	Display a toaster style popup with the header of header and 
+	the content of content.
+	'''
+	dialog=xbmcgui.Dialog()
+	dialog.notification(header,content,_basedir+'icon.png')
 ################################################################################
 # session class for youtubeTV session starting
 class YoutubeTV():
@@ -129,7 +131,6 @@ class YoutubeTV():
 		self.playlistCache=tables.table(_datadir+'playlistCache/')
 		# playlist cache
 		self.webCache=self.loadConfig('webCache','dict')
-		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
 		# update the channels
 		for channel in self.channels:
 			# if channel has no values
@@ -206,6 +207,7 @@ class YoutubeTV():
 		self.removeChannel(channelUsername)
 		# add the channel back
 		self.addChannel(channelUsername)
+		popup('YoutubeTV','Channel '+channelUsername+' reset')
 	def removeChannel(self,channelUsername):
 		'''
 		Remove channel with username channelUsername.
@@ -238,8 +240,8 @@ class YoutubeTV():
 				self.timer.deleteValue(item)
 		# save the changes to the data
 		self.saveConfig('channels',self.channels)
-		#self.saveConfig('cache',self.cache)
-		#self.saveConfig('timer',self.timer)
+		xbmc.executebuiltin('container.Update('+_url+',replace)')
+		popup('YoutubeTV','Channel '+channelUsername+' removed')
 	def checkTimer(self,userName,delay):
 		'''
 		Checks timer on username to see if videos in that channel have been
@@ -313,7 +315,6 @@ class YoutubeTV():
 			# refresh all videos in channel
 			self.getUserVideos(channel)
 	def channelPlaylists(self,channelName,display=True):
-		debug.add('channelPlaylists called')
 		'''
 		Grab the playlists for a channel with the username channelName.
 		
@@ -329,7 +330,6 @@ class YoutubeTV():
 		# The playlist identifer holds a dict containing
 		# a title, thumbnail and array. The array holds a list
 		# of videos that can be played
-		debug.add('playlistCache',self.playlistCache.names)
 		# check timer for the channelPlaylists 
 		if self.checkTimer(channelName+':playlists','channelPlaylistDelay') is True:
 			# timer has rang, entry needs updated
@@ -346,7 +346,6 @@ class YoutubeTV():
 			# create an array of all the playlist ids
 			for line in results:
 				if '/playlist?list=' in line:
-					debug.add('found a playlist on page',line)
 					paths.append(line.replace('/playlist?list=',''))
 			# create the progress bar
 			progressDialog=xbmcgui.DialogProgress()
@@ -380,7 +379,6 @@ class YoutubeTV():
 			listing=[]
 			# for each playlist in the playlist cache create a button
 			for key in self.playlistCache.loadValue(channelName).keys():
-				debug.add('key',key)
 				# grab the playlist id 
 				playlistId=key
 				# set the title to the cached playlist title
@@ -532,7 +530,6 @@ class YoutubeTV():
 			# if the link is a link to a channel
 			if '/user/' in link:
 				link=link[link.find('/user/'):]
-				debug.add('cut user link',link)
 				# do not add duplicate entries found in the search
 				if link not in temp:
 					# add the link 
@@ -602,7 +599,6 @@ class YoutubeTV():
 						# - second title="" will have the human readable channel title
 						# you should store these things in the cache somehow to use them 
 						# when rendering the channels view
-						debug.banner()
 						# grab text in src attribute between parathenesis
 						icon=tag.split('src="')
 						icon=icon[1].split('"')
@@ -625,6 +621,17 @@ class YoutubeTV():
 					thumb=icon,\
 					icon=icon,\
 					fanart=fanArt)
+
+
+			# add context menu actions
+			contextItems=[]
+			# remove category button
+			contextItems.append((('Add Channel '+title),'RunPlugin('+_url+'?action=addChannel&value='+channel+')'))
+			contextItems.append((('End Search'),'RunPlugin('+_url+'?action=main)'))
+			# listing item is second item in a tuple, so we add the context menu
+			# to the listing item stored in temp
+			temp[1].addContextMenuItems(contextItems)
+			# add the item
 			listing.append(temp)
 		# save the channels into the channel cache
 		self.saveConfig('channelCache',self.channelCache)
@@ -636,7 +643,6 @@ class YoutubeTV():
 		# Finish creating a virtual folder.
 		xbmcplugin.endOfDirectory(_handle)
 	def grabWebpage(self,url):
-		debug.add('grab url',url)
 		# get the youtube users webpage
 		webpageText=urllib.urlopen(url)
 		temp=''
@@ -715,7 +721,6 @@ class YoutubeTV():
 		found=False
 		# search for placement of video in existing cached videos
 		for oldVideo in tempCache:
-			debug.banner()
 			# for each video in the channels cache
 			if found:
 				# if video placement has already been found
@@ -880,10 +885,9 @@ class YoutubeTV():
 		return tempVideoCache
 	def backup(self):
 		# backup the channels saved in the addon
-
-		tempTable=tables.table(_datadir)
+		tempTable=tables.table(_datadir+'backup/')
 		tempTable.saveValue('backup',self.channels)
-		#saveFile('channels.backup',pickle.dumps(self.channels))
+		popup('YoutubeTV','Backup Complete!')
 	def restore(self):
 		# clear out caches prior to restore
 		# this prevents hanging cache data
@@ -893,9 +897,13 @@ class YoutubeTV():
 		self.cache.reset()
 		self.timer.reset()
 		# restore the channels saved from the last backup
-		tempTable=tables.table(_datadir)
+		tempTable=tables.table(_datadir+'backup/')
 		self.channels=tempTable.loadValue('backup')
-		tempTable.saveValue('backup')
+		# save the loaded backup of channels 
+		self.saveConfig('channels',self.channels)
+		# refresh the view and load the popup
+		xbmc.executebuiltin('container.Update('+_url+',replace)')
+		popup('YoutubeTV','Restore of backup Complete!')
 ################################################################################
 def createButton(action='',title='default',thumb='default',icon='default',fanart='default',is_folder=True):
 	'''Create a list item to be created that is used as a menu button'''
@@ -910,9 +918,14 @@ def createButton(action='',title='default',thumb='default',icon='default',fanart
 # Get the plugin url in plugin:// notation.
 _id= 'plugin.video.youtubetv'
 _url = sys.argv[0]
+# base directory
+_basedir= "special://home/addons/"+_id+"/"
+# translate path to system path, make plugin multiplatform
+_basedir=xbmc.translatePath(_basedir)
+# resources directory
 _resdir = "special://home/addons/"+_id+"/resources"
-# convert resource directory to a real directory path
 _resdir=xbmc.translatePath(_resdir)
+# user settings directory
 _datadir=('special://userdata/addon_data/'+_id+'/')
 _datadir=xbmc.translatePath(_datadir)
 # add the resources directory to the sys path to import libaries
@@ -948,7 +961,6 @@ def get_categories():
 	#session.refreshCache()
 	#return session.channels
 	#return session.cache.keys()
-	debug.add('session.cache.names',session.cache.names.keys())
 	return session.cache.names.keys()
 
 def get_videos(category):
@@ -973,13 +985,19 @@ def list_categories():
 	listing = []
 	# create a search channel button in the channels view
 	searchIconPath=(_resdir+'/media/search.png')
-	listing.append(createButton(action='searchChannel',title='Search Channels',thumb=searchIconPath,icon=searchIconPath,fanart='default'))
+	# create the search button
+	searchButton=createButton(action='searchChannel',title='Search Channels',thumb=searchIconPath,icon=searchIconPath,fanart='default')
+	# create refresh context menu item for the search button
+	contextItems=[(('Refresh View'),'RunPlugin('+_url+'?action=main)')]
+	# add context menu items to the search button
+	searchButton[1].addContextMenuItems(contextItems)
+	# add the search button to the listing
+	listing.append(searchButton)
 	# Iterate through categories
 	for category in categories:
 		# if a category has nothing in it then no category will be listed in the interface
 		if len(category)==0:
 			return
-		debug.add('ERROR HELP', category)
 		# store video title for use in this scope
 		title=session.channelCache[category]['title']
 		# Create a list item with a text label and a thumbnail image.
@@ -1141,8 +1159,10 @@ def router(paramstring):
 			play_video(params['video'])
 		elif params['action'] == 'main':
 			debug.add('action=main was activated in router')
-			# the item is a return to main menu button
+			# the item is a forced return to main menu
 			list_categories()
+			# force refresh the view
+			xbmc.executebuiltin('container.Update('+_url+',replace)')
 		elif params['action'] == 'channelPlaylists':
 			debug.add('action=channelPlaylists was activated in router')
 			session.channelPlaylists(params['channel'])
@@ -1168,6 +1188,8 @@ def router(paramstring):
 			# check for blank strings and ignore them
 			if len(params['value']) > 0:
 				session.addChannel(params['value'])
+			# popup notification
+			popup('YoutubeTV','Added Channel '+params['value'])
 			# refresh the view
 			list_categories()
 		elif params['action'] == 'backupChannels':
