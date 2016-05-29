@@ -46,6 +46,7 @@ log:
 debug-settings:
 	# display all the settings files
 	cat ~/.kodi/userdata/addon_data/plugin.video.youtubetv/*
+debug-settings-size:
 	# display file sizes
 	du -sh ~/.kodi/userdata/addon_data/plugin.video.youtubetv/*
 debug:
