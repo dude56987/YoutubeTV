@@ -13,7 +13,6 @@
 		<setting visible='false' id='webCache' type='text' default=''/>
 		<setting visible='false' id='channels' type='text' default=''/>
 		<setting visible='false' id='channelCache' type='text' default=''/>
-		<setting visible='false' id='playlistCache' type='text' default=''/>
 	</category>
 	<category label='Backup/Restore'>
 		<setting label='Backup' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=backupChannels)'/>

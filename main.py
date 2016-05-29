@@ -126,7 +126,7 @@ class YoutubeTV():
 		# load the channels cache
 		self.channelCache=self.loadConfig('channelCache','dict')
 		# playlist cache
-		self.playlistCache=self.loadConfig('playlistCache','dict')
+		self.playlistCache=tables.table(_datadir+'playlistCache/')
 		# playlist cache
 		self.webCache=self.loadConfig('webCache','dict')
 		#self.addChannel('bluexephos')#DEBUG this is to see if any channels are picked up
@@ -220,9 +220,10 @@ class YoutubeTV():
 			#del self.cache[channelUsername]
 			self.cache.deleteValue(channelUsername)
 			# if channel has playlists in cache
-			if channelUsername in self.playlistCache.keys():
+			if channelUsername in self.playlistCache.names.keys():
 				# delete the playlists for the channel
-				del self.playlistCache[channelUsername]
+				#del self.playlistCache[channelUsername]
+				self.playlistCache.deleteValue(channelUsername)
 			# delte the channel timer
 			#del self.timer[channelUsername]
 			self.timer.deleteValue(channelUsername)
@@ -254,7 +255,7 @@ class YoutubeTV():
 		refreshDelay=addonObject.getSetting(delay)
 		refreshDelay=int(refreshDelay)
 		#if userName in self.timer.keys():
-		if userName in self.timer.names:
+		if userName in self.timer.names.keys():
 			# update videos if videos were updated more than an hour ago
 			#if self.timer[userName]<datetime.datetime.now():
 			if self.timer.loadValue(userName)<datetime.datetime.now():
@@ -328,15 +329,16 @@ class YoutubeTV():
 		# The playlist identifer holds a dict containing
 		# a title, thumbnail and array. The array holds a list
 		# of videos that can be played
-		debug.add('playlistCache',self.playlistCache)
+		debug.add('playlistCache',self.playlistCache.names)
 		# check timer for the channelPlaylists 
 		if self.checkTimer(channelName+':playlists','channelPlaylistDelay') is True:
 			# timer has rang, entry needs updated
 
 			# if no playlist entries exist for this channel
 			# create a blank entry
-			if channelName not in self.playlistCache.keys():
-				self.playlistCache[channelName]={}
+			if channelName not in self.playlistCache.names.keys():
+				#self.playlistCache[channelName]={}
+				self.playlistCache.saveValue(channelName,dict())
 			# grab a list of all the playlists for this channel
 			results=self.grabWebpage("https://www.youtube.com"+channelName+"/playlists")
 			results=results.split('"')
@@ -354,16 +356,19 @@ class YoutubeTV():
 			# for each playlist id
 			for playlistId in paths:
 				# if the playlist does not exist yet
-				if playlistId not in self.playlistCache[channelName].keys():
+				if playlistId not in self.playlistCache.loadValue(channelName).keys():
 					# create a entry in the playlist cache
-					self.playlistCache[channelName][playlistId]={}
+					temp=self.playlistCache.loadValue(channelName)
+					# create the playlist id dict
+					temp[playlistId]={}
 					# add a blank array value
-					self.playlistCache[channelName][playlistId]['array']=[]
+					temp[playlistId]['array']=[]
+					self.playlistCache.saveValue(channelName,temp)
 					# update the playlist title and grab all videos in the
 					# playlist to store them in the cache
 					self.grabPlaylist(playlistId,channelName,display=None,firstOnly=True)
 				# grab the title of the playlist last being worked on
-				title=self.playlistCache[channelName][playlistId]['name']
+				title=self.playlistCache.loadValue(channelName)[playlistId]['name']
 				# draw the progress onscreen 
 				progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
 				# increment the progress
@@ -374,14 +379,14 @@ class YoutubeTV():
 			# drawing them onscreen
 			listing=[]
 			# for each playlist in the playlist cache create a button
-			for key in self.playlistCache[channelName]:
+			for key in self.playlistCache.loadValue(channelName).keys():
 				debug.add('key',key)
 				# grab the playlist id 
 				playlistId=key
 				# set the title to the cached playlist title
-				title=self.playlistCache[channelName][key]['name']
+				title=self.playlistCache.loadValue(channelName)[key]['name']
 				# set the thumbnail to the first entry in the playlist
-				thumb=self.playlistCache[channelName][key]['array'][0]['thumb']
+				thumb=self.playlistCache.loadValue(channelName)[key]['array'][0]['thumb']
 				# create a button for each playlist to display that playlist
 				action=('viewPlaylist&channel='+channelName+'&playlist='+playlistId)
 				temp=createButton(action=action,\
@@ -391,7 +396,7 @@ class YoutubeTV():
 						fanart=thumb)
 				listing.append(temp)
 			# save the playlists into the playlist cache
-			self.saveConfig('playlistCache',self.playlistCache)
+			#self.saveConfig('playlistCache',self.playlistCache)
 			xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
 			# change the default view to thumbnails
 			xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
@@ -425,7 +430,8 @@ class YoutubeTV():
 			title=title.replace('- YouTube','')
 			title=self.cleanText(title)
 			# set the title in the cache
-			self.playlistCache[channelName][playlistId]['name']=title
+			tempPlaylistCache=self.playlistCache.loadValue(channelName)
+			tempPlaylistCache[playlistId]['name']=title
 			# for each item in the playlist cache the data
 			for item in playlistList.split('<tr class="pl-video yt-uix-tile'):
 				title=findText('data-title="','"',item)
@@ -433,7 +439,7 @@ class YoutubeTV():
 				video=findText('data-video-id="','"',item)
 				thumb=findText('data-thumb="','"',item)
 				# if video id is not a dupe and does not contain any html
-				if video not in str(self.playlistCache[channelName][playlistId]['array']) and\
+				if video not in str(tempPlaylistCache[playlistId]['array']) and\
 				'><' not in video:
 					# begin building dict to add to the category array
 					temp={}
@@ -451,14 +457,14 @@ class YoutubeTV():
 					# set the genre to youtube
 					temp['genre']='youtube'
 					# add the found playlist items to the playlist array value
-					self.playlistCache[channelName][playlistId]['array'].append(temp)
+					tempPlaylistCache[playlistId]['array'].append(temp)
 					if firstOnly==True:
 						# if firstonly is set only cache the first video
 						# and return the function
-						self.saveConfig('playlistCache',self.playlistCache)
+						self.playlistCache.saveValue(channelName,tempPlaylistCache)
 						return
 			# save videos to the playlistcache
-			self.saveConfig('playlistCache',self.playlistCache)
+			self.playlistCache.saveValue(channelName,tempPlaylistCache)
 		# if display is set to true then draw this playlist onscreen
 		if display==True:
 			# create a list for all the buttons to be stored in before
@@ -471,7 +477,7 @@ class YoutubeTV():
 				icon=thumb,fanart=thumb,is_folder=False)
 			listing.append(temp)
 			# for each video in the playlist array
-			for item in self.playlistCache[channelName][playlistId]['array']:
+			for item in self.playlistCache.loadValue(channelName)[playlistId]['array']:
 				# set the title to the cached playlist title
 				title=item['name']
 				# set the thumbnail to the cached thumbnail
@@ -671,7 +677,7 @@ class YoutubeTV():
 		'''channel is a string, item is a dict'''
 		#if len(self.cache[channel])<1:
 		tempCache=self.cache.loadValue(channel)
-		if len(self.cache.names)<1:
+		if len(self.cache.names.keys())<1:
 			# set found time for video
 			newVideo['foundTime']=1
 			# if the cache has no existing videos then add the video
@@ -883,21 +889,10 @@ class YoutubeTV():
 		# this prevents hanging cache data
 		self.saveConfig('channels',[])
 		self.channels=[]
-		self.saveConfig('playlistCache',{})
-		self.playlistCache={}
-		#self.saveConfig('cache',{})
-		#self.cache={}
-		self.cache=tables.table(_datadir+'cache/')
-		#self.saveConfig('timer',{})
-		#self.timer={}
-		self.timer=tables.table(_datadir+'timer/')
+		self.playlistCache.reset()
+		self.cache.reset()
+		self.timer.reset()
 		# restore the channels saved from the last backup
-		#temp=loadFile('channels.backup')
-		#temp=pickle.loads(temp)
-		#self.channels=temp
-		# save the restored channels
-		#self.saveConfig('channels',self.channels)
-		# load up the backup
 		tempTable=tables.table(_datadir)
 		self.channels=tempTable.loadValue('backup')
 		tempTable.saveValue('backup')
@@ -953,8 +948,8 @@ def get_categories():
 	#session.refreshCache()
 	#return session.channels
 	#return session.cache.keys()
-	debug.add('session.cache.names',session.cache.names)
-	return session.cache.names
+	debug.add('session.cache.names',session.cache.names.keys())
+	return session.cache.names.keys()
 
 def get_videos(category):
 	"""
@@ -1156,7 +1151,7 @@ def router(paramstring):
 			session.grabPlaylist(params['playlist'],params['channel'])
 		elif params['action'] == 'playAll':
 			# play all of the videos in a playlist
-			play_all(session.playlistCache[params['channel']][params['playlist']]['array'])
+			play_all(session.playlistCache.loadValue(params['channel'])[params['playlist']]['array'])
 		elif params['action'] == 'removeChannel':
 			debug.add('action=removeChannel was activated in router')
 			# remove the channel from cache and channel list

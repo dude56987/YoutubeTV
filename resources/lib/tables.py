@@ -75,6 +75,13 @@ class table():
 		else:
 			self.limit=None
 	################################################################################
+	def reset(self):
+		'''
+		Delete all stored data in the table.
+		'''
+		for value in self.names.keys():
+			self.deleteValue(value)
+	################################################################################
 	def setProtected(self,name):
 		'''
 		Set a name in the table to be protected from removal
