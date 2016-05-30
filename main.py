@@ -126,7 +126,7 @@ class YoutubeTV():
 		# load the channels config
 		self.channels=self.loadConfig('channels','array')
 		# load the channels cache
-		self.channelCache=self.loadConfig('channelCache','dict')
+		self.channelCache=tables.table(_datadir+'channelCache/')
 		# playlist cache
 		self.playlistCache=tables.table(_datadir+'playlistCache/')
 		# playlist cache
@@ -499,18 +499,18 @@ class YoutubeTV():
 		channelLimit=addonObject.getSetting('channelLimit')
 		channelLimit=int(channelLimit)
 		# number of channels to delete from the cache
-		deleteCounter=len(self.channelCache.keys())-channelLimit
+		deleteCounter=len(self.channelCache.names.keys())-channelLimit
 		# ignore limit if value is zero
 		if channelLimit != 0:
 			# for each channel in the channel cache check
 			# if the channel has been added by the user
-			for channelTitle in self.channelCache.keys():
+			for channelTitle in self.channelCache.names.keys():
 				# if channel is not a user added channel
 				if channelTitle not in self.channels:
 					# if the delete counter is still above 0
 					if deleteCounter>0:
 						# delete the channel from the cache
-						del self.channelCache[channelTitle]
+						self.channelCache.deleteValue(channelTitle)
 						# decrement the delete counter
 						deleteCounter-=1
 		# searches on youtube can be placed with the below string
@@ -567,10 +567,10 @@ class YoutubeTV():
 			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
 			progressCurrent+=1
 			# if the channel info already exists use cached data
-			if channel in self.channelCache.keys():
-				title=self.channelCache[channel]['title']
-				icon=self.channelCache[channel]['icon']
-				fanArt=self.channelCache[channel]['fanArt']
+			if channel in self.channelCache.names.keys():
+				title=self.channelCache.loadValue(channel)['title']
+				icon=self.channelCache.loadValue(channel)['icon']
+				fanArt=self.channelCache.loadValue(channel)['fanArt']
 			else:
 				# if channel is not in the cache then grab info from the website
 				##############
@@ -613,11 +613,12 @@ class YoutubeTV():
 						# clean html entities from title
 						title=self.cleanText(title)
 						# add channel information to the channel cache
-						self.channelCache[channel]={}
+						tempChannelCache=dict()
 						# add title and icon
-						self.channelCache[channel]['title']=title
-						self.channelCache[channel]['icon']=icon
-						self.channelCache[channel]['fanArt']=fanArt
+						tempChannelCache['title']=title
+						tempChannelCache['icon']=icon
+						tempChannelCache['fanArt']=fanArt
+						self.channelCache.saveValue(channel,tempChannelCache)
 			# create a button to add the channel in the results	
 			temp=createButton(action=('addChannel&value='+channel),\
 					title=title,\
@@ -634,8 +635,7 @@ class YoutubeTV():
 			temp[1].addContextMenuItems(contextItems)
 			# add the item
 			listing.append(temp)
-		# save the channels into the channel cache
-		self.saveConfig('channelCache',self.channelCache)
+		# add items to listing
 		xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
 		# Add a sort method for the virtual folder items (alphabetically, ignore articles)
 		#xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
@@ -996,11 +996,13 @@ def list_categories():
 	listing.append(searchButton)
 	# Iterate through categories
 	for category in categories:
+		# load up the channel cache data
+		tempChannelCache=session.channelCache.loadValue(category)
 		# if a category has nothing in it then no category will be listed in the interface
 		if len(category)==0:
 			return
 		# store video title for use in this scope
-		title=session.channelCache[category]['title']
+		title=tempChannelCache['title']
 		# Create a list item with a text label and a thumbnail image.
 		list_item = xbmcgui.ListItem(label=title)
 		# add context menu actions
@@ -1013,17 +1015,16 @@ def list_categories():
 		# Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
 		# Here we use the same image for all items for simplicity's sake.
 		# In a real-life plugin you need to set each image accordingly.
-		list_item.setArt({'thumb': session.channelCache[category]['icon'],\
-				  'icon': session.channelCache[category]['icon'],\
-				  'fanart': session.channelCache[category]['fanArt']})
+		list_item.setArt({'thumb': tempChannelCache['icon'],\
+				  'icon': tempChannelCache['icon'],\
+				  'fanart': tempChannelCache['fanArt']})
 				  #'fanart': session.cache.loadValue(category)[0]['thumb']})
-				  #'fanart': session.channelCache[category]['fanart']})
 		# Set additional info for the list item.
 		# Here we use a category name for both properties for for simplicity's sake.
 		# setInfo allows to set various information for an item.
 		# For available properties see the following link:
 		# http://mirrors.xbmc.org/docs/python-docs/15.x-isengard/xbmcgui.html#ListItem-setInfo
-		list_item.setInfo('video', {'title': session.channelCache[category]['title'], 'genre': category})
+		list_item.setInfo('video', {'title': tempChannelCache['title'], 'genre': category})
 		# Create a URL for the plugin recursive callback.
 		# Example: plugin://plugin.video.example/?action=listing&category=Animals
 		url = '{0}?action=listing&category={1}'.format(_url, category)
