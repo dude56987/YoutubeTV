@@ -129,8 +129,8 @@ class YoutubeTV():
 		self.channelCache=tables.table(_datadir+'channelCache/')
 		# playlist cache
 		self.playlistCache=tables.table(_datadir+'playlistCache/')
-		# playlist cache
-		self.webCache=self.loadConfig('webCache','dict')
+		# webpage cache
+		self.webCache=tables.table(_datadir+'webCache/')
 		# update the channels
 		for channel in self.channels:
 			# if channel has no values
@@ -657,16 +657,16 @@ class YoutubeTV():
 		webCacheLimit=int(addonObject.getSetting('webCacheLimit'))
 		# when there are more items in the webcache than the
 		# limit
-		while len(self.webCache)>webCacheLimit:
+		while self.webCache.length>webCacheLimit:
 			# grab the key of the first item
-			key=self.webCache.keys()[0]
+			key=self.webCache.names.keys()[0]
 			# delete the oldest item
-			del self.webCache[key]
-			#del self.timer[key]
+			self.webCache.deleteValue(key)
+			# delete the timer assocated with that key
 			self.timer.deleteValue(key)
 		# check the timer for this specific webpage
 		if self.checkTimer(url,'webpageRefreshDelay') or\
-		url not in self.webCache.keys():
+		url not in self.webCache.names.keys():
 			# get the youtube users webpage
 			webpageText=urllib.urlopen(url)
 			temp=''
@@ -674,12 +674,10 @@ class YoutubeTV():
 				# mash everything into a string because they use code obscification
 				# also strip endlines to avoid garbage
 				temp+=(line.strip())
-			# place this webpage text in the cache
-			self.webCache[url]=temp
-		# update the settings in the saved cache after the loops
-		self.saveConfig('webCache',self.webCache)
+			# save this webpage in the cache
+			self.webCache.saveValue(url,temp)
 		# return the cached url
-		return self.webCache[url]
+		return self.webCache.loadValue(url)
 	def addVideo(self,channel,newVideo):
 		'''channel is a string, item is a dict'''
 		#if len(self.cache[channel])<1:

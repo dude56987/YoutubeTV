@@ -8,11 +8,9 @@
 		<setting id='playlistDelay' type='number' default='48' label='Forced delay in hours for refreshing playlists'/>
 		<setting id='channelPlaylistDelay' type='number' default='90' label='Forced delay in hours for refreshing the list of playlists in a channel'/>
 		<setting id='webpageRefreshDelay' type='number' default='1' label='Hours to delay redownloading webpages'/>
-		<setting id='webCacheLimit' type='number' default='8' label='Number of webpages to leave in the cache'/>
+		<setting id='webCacheLimit' type='number' default='25' label='Number of webpages to leave in the cache'/>
 		<!-- Invisible internal values for addon storage -->
-		<setting visible='false' id='webCache' type='text' default=''/>
 		<setting visible='false' id='channels' type='text' default=''/>
-		<setting visible='false' id='channelCache' type='text' default=''/>
 	</category>
 	<category label='Backup/Restore'>
 		<setting label='Backup' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=backupChannels)'/>
