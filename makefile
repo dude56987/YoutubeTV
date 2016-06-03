@@ -49,7 +49,11 @@ debug-settings:
 debug-settings-size:
 	# display file sizes
 	du -sh ~/.kodi/userdata/addon_data/plugin.video.youtubetv/*
-debug:
+	# total size
+	du -sh ~/.kodi/userdata/addon_data/plugin.video.youtubetv/.
+debug-settings-size-details:
+	ncdu ~/.kodi/userdata/addon_data/plugin.video.youtubetv/
+debug-log:
 	#cat ~/.kodi/temp/kodi.log | grep 'NOTE:*End of Python script error report'
 	tail -f ~/.kodi/temp/kodi.log | grep "NOTICE:"
 	#less ~/.kodi/userdata/addon_data/plugin.video.youtubetv/debug
