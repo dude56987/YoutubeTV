@@ -118,28 +118,15 @@ class YoutubeTV():
 		cache functionality and automated work.
 		'''
 		# create the cache for this session
-		#self.cache=self.loadConfig('cache','dict')
 		self.cache=tables.table(_datadir+'cache/')
 		# cache timer
-		#self.timer=self.loadConfig('timer','dict')
 		self.timer=tables.table(_datadir+'timer/')
-		# load the channels config
-		self.channels=self.loadConfig('channels','array')
 		# load the channels cache
 		self.channelCache=tables.table(_datadir+'channelCache/')
 		# playlist cache
 		self.playlistCache=tables.table(_datadir+'playlistCache/')
 		# webpage cache
 		self.webCache=tables.table(_datadir+'webCache/')
-		# update the channels
-		for channel in self.channels:
-			# if channel has no values
-			if channel not in self.cache.names:
-				# create an array to sit in it
-				#self.cache[channel]=[]	
-				self.cache.saveValue(channel,list())
-				#update the channel videos
-				self.getUserVideos(channel)
 	def saveConfig(self,config,newValue):
 		'''
 		Convert objects into strings and save in xbmc settings
@@ -184,18 +171,12 @@ class YoutubeTV():
 		return None
 		'''
 		# check if username is already in channels
-		if channelUsername not in self.channels:
-			# add username to channels
-			self.channels.append(channelUsername)
-			#self.cache[channelUsername]=[]
+		if channelUsername not in self.cache.names:
+			# add username to channel cache as a empty list
 			self.cache.saveValue(channelUsername,list())
-			# also update the things in the channel
-			self.getUserVideos(channelUsername)
 		else:
 			# end execution since it would be a dupe
 			return
-		# save the config changes
-		self.saveConfig('channels',self.channels)
 	def resetChannel(self,channelUsername):
 		'''
 		Delete channel cache information, and redownload
@@ -215,16 +196,12 @@ class YoutubeTV():
 		:return None
 		'''
 		# check if channel exists in channels
-		if channelUsername in self.channels:
-			# remove the channel from the channels array
-			self.channels.remove(channelUsername)
+		if channelUsername in self.cache.names:
 			# remove the channel from the cache
-			#del self.cache[channelUsername]
 			self.cache.deleteValue(channelUsername)
 			# if channel has playlists in cache
-			if channelUsername in self.playlistCache.names.keys():
+			if channelUsername in self.playlistCache.names:
 				# delete the playlists for the channel
-				#del self.playlistCache[channelUsername]
 				self.playlistCache.deleteValue(channelUsername)
 			# delte the channel timer
 			#del self.timer[channelUsername]
@@ -232,14 +209,13 @@ class YoutubeTV():
 			# delete the channel playlist timers
 			#for timer in self.timer.keys():
 			killArray=[]
-			for timer in self.timer.names.keys():
+			for timer in self.timer.names:
 				if channelUsername+':' in timer:
 					killArray.append(timer)
 					#del self.timer[timer]
 			for item in killArray:
 				self.timer.deleteValue(item)
 		# save the changes to the data
-		self.saveConfig('channels',self.channels)
 		xbmc.executebuiltin('container.Update('+_url+',replace)')
 		popup('YoutubeTV','Channel '+channelUsername+' removed')
 	def checkTimer(self,userName,delay):
@@ -257,7 +233,7 @@ class YoutubeTV():
 		refreshDelay=addonObject.getSetting(delay)
 		refreshDelay=int(refreshDelay)
 		#if userName in self.timer.keys():
-		if userName in self.timer.names.keys():
+		if userName in self.timer.names:
 			# update videos if videos were updated more than an hour ago
 			#if self.timer[userName]<datetime.datetime.now():
 			if self.timer.loadValue(userName)<datetime.datetime.now():
@@ -311,7 +287,7 @@ class YoutubeTV():
 		:return None
 		'''
 		# get list of channels to update cache
-		for channel in self.channels:
+		for channel in self.cache.names:
 			# refresh all videos in channel
 			self.getUserVideos(channel)
 	def channelPlaylists(self,channelName,display=True):
@@ -336,11 +312,11 @@ class YoutubeTV():
 
 			# if no playlist entries exist for this channel
 			# create a blank entry
-			if channelName not in self.playlistCache.names.keys():
+			if channelName not in self.playlistCache.names:
 				#self.playlistCache[channelName]={}
 				self.playlistCache.saveValue(channelName,dict())
 			# grab a list of all the playlists for this channel
-			results=self.grabWebpage("https://www.youtube.com"+channelName+"/playlists")
+			results=self.cacheWebpage("https://www.youtube.com"+channelName+"/playlists")
 			results=results.split('"')
 			paths=[]
 			# create an array of all the playlist ids
@@ -421,7 +397,7 @@ class YoutubeTV():
 			tempTimerValue=self.checkTimer(channelName+":"+playlistId,'playlistDelay')
 		if tempTimerValue:
 			# create the runplugin button to list the playlist
-			playlistList=self.grabWebpage('https://www.youtube.com/playlist?list='+playlistId)
+			playlistList=self.cacheWebpage('https://www.youtube.com/playlist?list='+playlistId)
 			# grab title of the playlist from the downloaded file
 			title=findText('<title>','</title>',playlistList)
 			# replace the youtube part in the title text
@@ -499,14 +475,14 @@ class YoutubeTV():
 		channelLimit=addonObject.getSetting('channelLimit')
 		channelLimit=int(channelLimit)
 		# number of channels to delete from the cache
-		deleteCounter=len(self.channelCache.names.keys())-channelLimit
+		deleteCounter=self.channelCache.length-channelLimit
 		# ignore limit if value is zero
 		if channelLimit != 0:
 			# for each channel in the channel cache check
 			# if the channel has been added by the user
-			for channelTitle in self.channelCache.names.keys():
+			for channelTitle in self.channelCache.names:
 				# if channel is not a user added channel
-				if channelTitle not in self.channels:
+				if channelTitle not in self.cache.names:
 					# if the delete counter is still above 0
 					if deleteCounter>0:
 						# delete the channel from the cache
@@ -567,7 +543,7 @@ class YoutubeTV():
 			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
 			progressCurrent+=1
 			# if the channel info already exists use cached data
-			if channel in self.channelCache.names.keys():
+			if channel in self.channelCache.names:
 				title=self.channelCache.loadValue(channel)['title']
 				icon=self.channelCache.loadValue(channel)['icon']
 				fanArt=self.channelCache.loadValue(channel)['fanArt']
@@ -577,7 +553,7 @@ class YoutubeTV():
 				# user channel information can be found by downloading the
 				# user channel page with
 				#"https://youtube.com/user/"userName
-				channelPage=self.grabWebpage("https://www.youtube.com"+channel)
+				channelPage=self.cacheWebpage("https://www.youtube.com"+channel)
 				# jerk out the banner image from the downloaded user webpage
 				try:
 					temp=channelPage.split('.hd-banner-image {background-image: url(//')
@@ -659,14 +635,14 @@ class YoutubeTV():
 		# limit
 		while self.webCache.length>webCacheLimit:
 			# grab the key of the first item
-			key=self.webCache.names.keys()[0]
+			key=self.webCache.names[0]
 			# delete the oldest item
 			self.webCache.deleteValue(key)
 			# delete the timer assocated with that key
 			self.timer.deleteValue(key)
 		# check the timer for this specific webpage
 		if self.checkTimer(url,'webpageRefreshDelay') or\
-		url not in self.webCache.names.keys():
+		url not in self.webCache.names:
 			# get the youtube users webpage
 			webpageText=urllib.urlopen(url)
 			temp=''
@@ -682,7 +658,7 @@ class YoutubeTV():
 		'''channel is a string, item is a dict'''
 		#if len(self.cache[channel])<1:
 		tempCache=self.cache.loadValue(channel)
-		if len(self.cache.names.keys())<1:
+		if self.cache.length<1:
 			# set found time for video
 			newVideo['foundTime']=1
 			# if the cache has no existing videos then add the video
@@ -753,7 +729,7 @@ class YoutubeTV():
 			#return self.cache[userName]
 			return self.cache.loadValue(userName)
 		# get the youtube users webpage
-		temp=self.grabWebpage("https://www.youtube.com"+str(userName)+"/videos")
+		temp=self.cacheWebpage("https://www.youtube.com"+str(userName)+"/videos")
 		# create an array to hold the video watch strings
 		videos=[]
 		downloadMethod='youtubetv'
@@ -885,21 +861,21 @@ class YoutubeTV():
 	def backup(self):
 		# backup the channels saved in the addon
 		tempTable=tables.table(_datadir+'backup/')
-		tempTable.saveValue('backup',self.channels)
+		tempTable.saveValue('backup',self.cache.names)
 		popup('YoutubeTV','Backup Complete!')
 	def restore(self):
 		# clear out caches prior to restore
 		# this prevents hanging cache data
-		self.saveConfig('channels',[])
-		self.channels=[]
 		self.playlistCache.reset()
 		self.cache.reset()
 		self.timer.reset()
 		# restore the channels saved from the last backup
 		tempTable=tables.table(_datadir+'backup/')
-		self.channels=tempTable.loadValue('backup')
-		# save the loaded backup of channels 
-		self.saveConfig('channels',self.channels)
+		channels=tempTable.loadValue('backup')
+		# refresh all channel data for channels
+		for channel in channels:
+			# save all channels into the cache
+			self.cache.saveValue(channel,list())
 		# refresh the view and load the popup
 		xbmc.executebuiltin('container.Update('+_url+',replace)')
 		popup('YoutubeTV','Restore of backup Complete!')
@@ -957,10 +933,7 @@ def get_categories():
 	:return: list
 	"""
 	# update the videos in the cache for each category
-	#session.refreshCache()
-	#return session.channels
-	#return session.cache.keys()
-	return session.cache.names.keys()
+	return session.cache.names
 
 def get_videos(category):
 	"""
@@ -1146,7 +1119,7 @@ def router(paramstring):
 	if params:
 		if params['action'] == 'listing':
 			debug.add('action=listing was activated in router')
-			if params['category'] in session.cache.names.keys():
+			if params['category'] in session.cache.names:
 				# Display the list of videos in a provided category.
 				list_videos(params['category'])
 			else:
