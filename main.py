@@ -733,6 +733,8 @@ class YoutubeTV():
 		tempCache=list(left+right)
 		self.cache.saveValue(channel,tempCache)
 	def getUserVideos(self,userName):
+		# check if the channel metadata needs updated
+		self.grabChannelMetadata(userName)
 		# create the progress bar
 		progressDialog=xbmcgui.DialogProgress()
 		# check the timer on the username
