@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <settings>
-	<category label='Cache'>
-		<!-- <setting label='refresh' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/)'/> -->
+	<category label='Cache Limits'>
+		<setting id='webCacheLimit' type='number' default='25' label='Number of webpages to leave in the cache'/>
 		<setting id='videoLimit' type='number' default='100' label='Videos to cache per channel'/>
 		<setting id='channelLimit' type='number' default='300' label='Channels to store in search cache'/>
+	</category>
+	<category label='Cache Delays'>
 		<setting id='refreshDelay' type='number' default='1' label='Forced delay in hours for new video cache refreshing'/>
 		<setting id='playlistDelay' type='number' default='48' label='Forced delay in hours for refreshing playlists'/>
 		<setting id='channelPlaylistDelay' type='number' default='90' label='Forced delay in hours for refreshing the list of playlists in a channel'/>
+		<!-- The below delay is 90 days in hours -->
+		<setting id='channelMetadataDelay' type='number' default='2160' label='Hours to delay updating channel metadata.'/>
 		<setting id='webpageRefreshDelay' type='number' default='1' label='Hours to delay redownloading webpages'/>
-		<setting id='webCacheLimit' type='number' default='25' label='Number of webpages to leave in the cache'/>
-		<!-- Invisible internal values for addon storage -->
-		<setting visible='false' id='channels' type='text' default=''/>
 	</category>
 	<category label='Backup/Restore'>
 		<setting label='Backup' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=backupChannels)'/>

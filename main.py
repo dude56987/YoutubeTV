@@ -470,6 +470,65 @@ class YoutubeTV():
 			xbmc.executebuiltin('Container.SetViewMode(%d)' % 500)
 			# Finish creating a virtual folder.
 			xbmcplugin.endOfDirectory(_handle)
+	def grabChannelMetadata(self,channel):
+		'''
+		Takes a channel in the form of /user/username or /channel/hashvalue 
+		as a string. Downloads the webpage of the channel into the cache. 
+		Then reads the channels metadata into the channelCache for later
+		use.
+		'''
+		# if the channel timer has expired or the channel does not 
+		# yet exist in the cache we need to update the channel data
+		if self.checkTimer(channel+':meta','channelMetadataDelay') or\
+		channel not in self.channelCache.names:
+			# if channel is not in the cache then grab info from the website
+			##############
+			# user channel information can be found by downloading the
+			# user channel page with
+			#"https://youtube.com"userName
+			channelPage=self.cacheWebpage("https://www.youtube.com"+channel)
+			# jerk out the banner image from the downloaded user webpage
+			try:
+				temp=channelPage.split('.hd-banner-image {background-image: url(//')
+				temp=temp[1]
+				temp=temp.split(');')
+				# append https to the picture so it will work
+				fanArt="https://"+temp[0]
+			except:
+				# if this does not work set the fanart to none
+				fanArt='none'
+			# split the page based on tag opening
+			channelPage=channelPage.split("<")
+			for tag in channelPage:
+				# the channels metadata is stored in a image tag for the users
+				# profile picture, so search for
+				#'class="channel-header-profile-image"'
+				if 'class="channel-header-profile-image"' in tag:
+					# inside this string you will have two important variables
+					# - first src="" will have the icon you should use for the channel
+					# - second title="" will have the human readable channel title
+					# you should store these things in the cache somehow to use them 
+					# when rendering the channels view
+					# grab text in src attribute between parathenesis
+					icon=tag.split('src="')
+					icon=icon[1].split('"')
+					icon=icon[0]
+					# if a generated channel uses the other wierd icon format
+					if icon[:2]=='//':
+						icon='https:'+icon
+					# grab text in title attribute for channel title
+					title=tag.split('title="')
+					title=title[1].split('"')
+					title=title[0]
+					# clean html entities from title
+					title=self.cleanText(title)
+					# add channel information to the channel cache
+					tempChannelCache=dict()
+					# add title and icon
+					tempChannelCache['title']=title
+					tempChannelCache['icon']=icon
+					tempChannelCache['fanArt']=fanArt
+					self.channelCache.saveValue(channel,tempChannelCache)
 	def searchChannel(self,searchString):
 		# grab the channel cache limit setting
 		channelLimit=addonObject.getSetting('channelLimit')
@@ -542,59 +601,12 @@ class YoutubeTV():
 		for channel in searchResults:
 			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
 			progressCurrent+=1
-			# if the channel info already exists use cached data
-			if channel in self.channelCache.names:
-				title=self.channelCache.loadValue(channel)['title']
-				icon=self.channelCache.loadValue(channel)['icon']
-				fanArt=self.channelCache.loadValue(channel)['fanArt']
-			else:
-				# if channel is not in the cache then grab info from the website
-				##############
-				# user channel information can be found by downloading the
-				# user channel page with
-				#"https://youtube.com/user/"userName
-				channelPage=self.cacheWebpage("https://www.youtube.com"+channel)
-				# jerk out the banner image from the downloaded user webpage
-				try:
-					temp=channelPage.split('.hd-banner-image {background-image: url(//')
-					temp=temp[1]
-					temp=temp.split(');')
-					# append https to the picture so it will work
-					fanArt="https://"+temp[0]
-				except:
-					fanArt='none'
-				# split the page based on tag opening
-				channelPage=channelPage.split("<")
-				for tag in channelPage:
-					# the channels metadata is stored in a image tag for the users
-					# profile picture, so search for
-					#'class="channel-header-profile-image"'
-					if 'class="channel-header-profile-image"' in tag:
-						# inside this string you will have two important variables
-						# - first src="" will have the icon you should use for the channel
-						# - second title="" will have the human readable channel title
-						# you should store these things in the cache somehow to use them 
-						# when rendering the channels view
-						# grab text in src attribute between parathenesis
-						icon=tag.split('src="')
-						icon=icon[1].split('"')
-						icon=icon[0]
-						# if a generated channel uses the other wierd icon format
-						if icon[:2]=='//':
-							icon='https:'+icon
-						# grab text in title attribute for channel title
-						title=tag.split('title="')
-						title=title[1].split('"')
-						title=title[0]
-						# clean html entities from title
-						title=self.cleanText(title)
-						# add channel information to the channel cache
-						tempChannelCache=dict()
-						# add title and icon
-						tempChannelCache['title']=title
-						tempChannelCache['icon']=icon
-						tempChannelCache['fanArt']=fanArt
-						self.channelCache.saveValue(channel,tempChannelCache)
+			# grab the channel metadata
+			self.grabChannelMetadata(channel)
+			# load up the channel values from the cache
+			title=self.channelCache.loadValue(channel)['title']
+			icon=self.channelCache.loadValue(channel)['icon']
+			fanArt=self.channelCache.loadValue(channel)['fanArt']
 			# create a button to add the channel in the results	
 			temp=createButton(action=('addChannel&value='+channel),\
 					title=title,\
@@ -874,6 +886,8 @@ class YoutubeTV():
 		channels=tempTable.loadValue('backup')
 		# refresh all channel data for channels
 		for channel in channels:
+			# grab each channels metadata and store it
+			self.grabChannelMetadata(channel)
 			# save all channels into the cache
 			self.cache.saveValue(channel,list())
 		# refresh the view and load the popup
