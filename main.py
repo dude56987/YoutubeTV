@@ -330,6 +330,12 @@ class YoutubeTV():
 			progressCurrent=0.0
 			# for each playlist id
 			for playlistId in paths:
+				# check if the cancel button was pressed
+				if progressDialog.iscanceled():
+					# cancel execution and delete timer value to pervent 
+					# partially loaded list
+					self.timer.deleteValue(channelName+':playlists')
+					return
 				# if the playlist does not exist yet
 				if playlistId not in self.playlistCache.loadValue(channelName).keys():
 					# create a entry in the playlist cache
@@ -599,6 +605,10 @@ class YoutubeTV():
 		progressTotal=float(len(searchResults))
 		progressCurrent=0.0
 		for channel in searchResults:
+			# check if the cancel button was pressed
+			if progressDialog.iscanceled():
+				return
+			# update the progress dialog
 			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
 			progressCurrent+=1
 			# grab the channel metadata
@@ -733,145 +743,158 @@ class YoutubeTV():
 		tempCache=list(left+right)
 		self.cache.saveValue(channel,tempCache)
 	def getUserVideos(self,userName):
-		# check if the channel metadata needs updated
-		self.grabChannelMetadata(userName)
-		# create the progress bar
-		progressDialog=xbmcgui.DialogProgress()
 		# check the timer on the username
-		if self.checkTimer(userName,'refreshDelay') != True:
-			# if the timer is false then time is not up and use the cached version
-			#return self.cache[userName]
-			return self.cache.loadValue(userName)
-		# get the youtube users webpage
-		temp=self.cacheWebpage("https://www.youtube.com"+str(userName)+"/videos")
-		# create an array to hold the video watch strings
-		videos=[]
-		downloadMethod='youtubetv'
-		#we have two different methods of grabing metadata
-		if downloadMethod=='youtubetv':
-			# search the videos without youtube-dl
-			# search for the list of videos in the webpage
-			temp=findText('<ul id="channels-browse-content-grid','<button class="yt-lockup-dismissable"></div>',temp)
-			# start the progress dialog
-			progressDialog.create(('Processing Video for '+userName),'Processing...')
-			# there are 25 videos on each page so we dont need to process this
-			# we multuply it by two and run progress for adding the videos to 
-			# the cache as well since this is half the work
-			progressTotal=float(25*2)
-			progressCurrent=0.0
-			# split the list based on the video list items in the grid
-			for line in temp.split('<li class="channels-content-item'):
-				# now find the youtube video information
-				#findText(start,end,searchText)
-				video=findText('href="/watch?v=','"',line)
-				thumb=findText('src="','"',line)
-				title=findText('dir="ltr" title="','"',line)
-				# convert all html entities in the title to unicode charcters
-				title=self.cleanText(title)
-				# begin building dict to add to the category array
-				temp={}
-				# set the video url to the found url
-				temp['video']=video
-				# set the title
-				temp['name']=title
-				# set the thumbnail, add http to make the address resolve
-				if "http" not in thumb:
-					# if https is not in the path add it
-					temp['thumb']="http:"+thumb
-				else:
-					# otherwise add the path
-					temp['thumb']=thumb
-				# set the genre to youtube
-				temp['genre']='youtube'
-				# update the progress bar on screen and increment the counter
-				progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
-				progressCurrent+=1
-				# add the found data to the videos array
-				videos.append(temp)
-			# reverse the order of videos in order to give correct timestamps
-			videos.reverse()
-			# create dialog for adding videos
-			progressDialog.create(('Adding video to '+userName),'Organizing...')
-			progressTotal=len(videos)
-			progressCurrent=0.0
-			# add found video information to the cache
-			for video in videos:
-				# this is the second half of the video updates so the dialog keeps running
-				# update the progress bar on screen and increment the counter
-				progressDialog.update(int(100*(progressCurrent/progressTotal)),video['name'])
-				progressCurrent+=1
-				# set user data in the cache
-				self.addVideo(userName,video)
-		elif downloadMethod=='youtube-dl':
-			# split page based on parathensis since we are looking for video play strings 
-			webpageText=temp.split('"')
-			# run though the split text array looking for watch strings in lines
-			for line in webpageText:
-				if '/watch?v=' in line:
-					# create real youtube url from found strings
-					temp='https://youtube.com'+str(line)
-					# avoid duplicate entries
-					if temp not in videos:
-						# add video if it does not exist in the file already
-						videos.append(temp)
-			# start the progress dialog
-			progressDialog.create(('Adding Videos to '+userName),'Processing...')
-			progressTotal=float(len(videos))
-			progressCurrent=0.0
-			# reverse the order of videos in order to give correct timestamps
-			videos.reverse()
-			# generate the data for drawing videos in kodi menu
-			for video in videos:
-				# update the progress bar on screen and increment the counter
-				progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
-				progressCurrent+=1
-				# build a list of existing video urls in cache to check aginst
-				videoList=[] 
-				#for videoDict in self.cache[userName]:
-				for videoDict in self.cache.loadValue(userName):
-					# add the url of each video in the cache already
-					# to the videoList array for checking
-					videoList.append(videoDict['video'])
-				# check if the video already exists in the video cache by
-				# referencing it against the previously create videoList
-				if video not in videoList:
+		if self.checkTimer(userName,'refreshDelay'):
+			# check if the channel metadata needs updated
+			self.grabChannelMetadata(userName)
+			# create the progress bar
+			progressDialog=xbmcgui.DialogProgress()
+			# get the youtube users webpage
+			temp=self.cacheWebpage("https://www.youtube.com"+str(userName)+"/videos")
+			# create an array to hold the video watch strings
+			videos=[]
+			downloadMethod='youtubetv'
+			#we have two different methods of grabing metadata
+			if downloadMethod=='youtubetv':
+				# search the videos without youtube-dl
+				# search for the list of videos in the webpage
+				temp=findText('<ul id="channels-browse-content-grid','<button class="yt-lockup-dismissable"></div>',temp)
+				# start the progress dialog
+				progressDialog.create(('Processing Video for '+userName),'Processing...')
+				# there are 25 videos on each page so we dont need to process this
+				# we multuply it by two and run progress for adding the videos to 
+				# the cache as well since this is half the work
+				progressTotal=float(25*2)
+				progressCurrent=0.0
+				# split the list based on the video list items in the grid
+				for line in temp.split('<li class="channels-content-item'):
+					# check if the cancel button was pressed
+					if progressDialog.iscanceled():
+						# cancel execution and delete timer value to pervent 
+						# partially loaded list
+						self.timer.deleteValue(userName)
+						return
+					# now find the youtube video information
+					#findText(start,end,searchText)
+					video=findText('href="/watch?v=','"',line)
+					thumb=findText('src="','"',line)
+					title=findText('dir="ltr" title="','"',line)
+					# convert all html entities in the title to unicode charcters
+					title=self.cleanText(title)
 					# begin building dict to add to the category array
 					temp={}
 					# set the video url to the found url
 					temp['video']=video
-					# find the video title using youtube-dl
-					title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
-					title=title.communicate()[0].strip()
 					# set the title
 					temp['name']=title
-					# get the thumbnail url
-					thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
-					thumbnail=thumbnail.communicate()[0].strip()
-					# set the thumbnail
-					temp['thumb']=thumbnail
+					# set the thumbnail, add http to make the address resolve
+					if "http" not in thumb:
+						# if https is not in the path add it
+						temp['thumb']="http:"+thumb
+					else:
+						# otherwise add the path
+						temp['thumb']=thumb
 					# set the genre to youtube
 					temp['genre']='youtube'
-					# add a time to the element for the purposes of sorting
-					temp['foundTime']=datetime.datetime.now()
+					# update the progress bar on screen and increment the counter
+					progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
+					progressCurrent+=1
+					# add the found data to the videos array
+					videos.append(temp)
+				# reverse the order of videos in order to give correct timestamps
+				videos.reverse()
+				# create dialog for adding videos
+				progressDialog.create(('Adding video to '+userName),'Organizing...')
+				progressTotal=len(videos)
+				progressCurrent=0.0
+				# add found video information to the cache
+				for video in videos:
+					# check if the cancel button was pressed
+					if progressDialog.iscanceled():
+						# cancel execution and delete timer value to pervent 
+						# partially loaded list
+						self.timer.deleteValue(userName)
+						return
+					# this is the second half of the video updates so the dialog keeps running
+					# update the progress bar on screen and increment the counter
+					progressDialog.update(int(100*(progressCurrent/progressTotal)),video['name'])
+					progressCurrent+=1
 					# set user data in the cache
-					self.addVideo(userName,temp)
-		# load up the video limit from settings
-		videoLimit=addonObject.getSetting('videoLimit')
-		# cast videolimit from a string to a int
-		videoLimit=int(videoLimit)
-		# ignore videoLimit if it is set to 0
-		if videoLimit!=0:
-			# load up the videos
-			tempVideoCache=self.cache.loadValue(userName)
-			# trim videos to the video limit
-			while len(tempVideoCache)>videoLimit:
-				# pop off a single item from the end of
-				# the array
-				tempVideoCache.pop()
-		# update the settings in the saved cache after the loops
-		self.cache.saveValue(userName,tempVideoCache)
-		# return the cached videos
-		return tempVideoCache
+					self.addVideo(userName,video)
+			elif downloadMethod=='youtube-dl':
+				# split page based on parathensis since we are looking for video play strings 
+				webpageText=temp.split('"')
+				# run though the split text array looking for watch strings in lines
+				for line in webpageText:
+					if '/watch?v=' in line:
+						# create real youtube url from found strings
+						temp='https://youtube.com'+str(line)
+						# avoid duplicate entries
+						if temp not in videos:
+							# add video if it does not exist in the file already
+							videos.append(temp)
+				# start the progress dialog
+				progressDialog.create(('Adding Videos to '+userName),'Processing...')
+				progressTotal=float(len(videos))
+				progressCurrent=0.0
+				# reverse the order of videos in order to give correct timestamps
+				videos.reverse()
+				# generate the data for drawing videos in kodi menu
+				for video in videos:
+					# check if the cancel button was pressed
+					if progressDialog.iscanceled():
+						# cancel execution and delete timer value to pervent 
+						# partially loaded list
+						self.timer.deleteValue(userName)
+						return
+					# update the progress bar on screen and increment the counter
+					progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
+					progressCurrent+=1
+					# build a list of existing video urls in cache to check aginst
+					videoList=[] 
+					#for videoDict in self.cache[userName]:
+					for videoDict in self.cache.loadValue(userName):
+						# add the url of each video in the cache already
+						# to the videoList array for checking
+						videoList.append(videoDict['video'])
+					# check if the video already exists in the video cache by
+					# referencing it against the previously create videoList
+					if video not in videoList:
+						# begin building dict to add to the category array
+						temp={}
+						# set the video url to the found url
+						temp['video']=video
+						# find the video title using youtube-dl
+						title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
+						title=title.communicate()[0].strip()
+						# set the title
+						temp['name']=title
+						# get the thumbnail url
+						thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
+						thumbnail=thumbnail.communicate()[0].strip()
+						# set the thumbnail
+						temp['thumb']=thumbnail
+						# set the genre to youtube
+						temp['genre']='youtube'
+						# add a time to the element for the purposes of sorting
+						temp['foundTime']=datetime.datetime.now()
+						# set user data in the cache
+						self.addVideo(userName,temp)
+			# load up the video limit from settings
+			videoLimit=addonObject.getSetting('videoLimit')
+			# cast videolimit from a string to a int
+			videoLimit=int(videoLimit)
+			# ignore videoLimit if it is set to 0
+			if videoLimit!=0:
+				# load up the videos
+				tempVideoCache=self.cache.loadValue(userName)
+				# trim videos to the video limit
+				while len(tempVideoCache)>videoLimit:
+					# pop off a single item from the end of
+					# the array
+					tempVideoCache.pop()
+			# update the settings in the saved cache after the loops
+			self.cache.saveValue(userName,tempVideoCache)
 	def backup(self):
 		# backup the channels saved in the addon
 		tempTable=tables.table(_datadir+'backup/')
@@ -960,8 +983,10 @@ def get_videos(category):
 	:param category: str
 	:return: list
 	"""
-	# check for updates to the category and return category
-	return session.getUserVideos(category)
+	# check for updates to the category
+	session.getUserVideos(category)
+	# return category value
+	return session.cache.loadValue(category)
 
 def list_categories():
 	"""
