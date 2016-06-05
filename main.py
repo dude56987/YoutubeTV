@@ -948,7 +948,7 @@ sys.path.append(_resdir+'/lib/')
 import tables
 import masterdebug
 # initalize the debugging
-debug=masterdebug.init()
+debug=masterdebug.init(False)
 # Get the plugin handle as an integer number.
 _handle = int(sys.argv[1])
 # load the youtube videos on that channel from
