@@ -25,7 +25,7 @@ from pickle import loads as unpickle
 from pickle import dumps as pickle
 from os.path import join as pathJoin
 from os.path import exists as pathExists
-from os import listdir 
+from os import listdir
 from os import makedirs
 from os import remove as removeFile
 from random import choice
@@ -33,23 +33,23 @@ from random import choice
 class table():
 	def __init__(self,path):
 		'''
-		DB table to store things as files and directories. This is 
+		DB table to store things as files and directories. This is
 		designed to reduce ram usage when reading things from large
 		databases. Specifically this is designed for caches.
 
 		# variables #
-		.path 
+		.path
 		  The path on the filesystem where the table is stored.
-		.names 
-		  Gives you a list containing the names of all stored 
+		.names
+		  Gives you a list containing the names of all stored
 		  values as strings.
-		.namePaths 
+		.namePaths
 		  Gives you a dict where the keys are the names and
 		  the value is the path of that value database file
-		.length 
+		.length
 		  The length of names stored in this table
 		'''
-		# path of the root of the cache, this is where files 
+		# path of the root of the cache, this is where files
 		# will be stored on the system
 		self.path=path
 		# create the paths if they do not exist
@@ -105,7 +105,7 @@ class table():
 		because of limits.
 		'''
 		# generate the filepath to the protected values
-		# list 
+		# list
 		filePath=pathJoin(self.path,'protected.table')
 		# check if the path exists
 		if pathExists(filePath):
@@ -142,9 +142,9 @@ class table():
 				if name not in self.protectedList:
 					deathList.append(name)
 			# randomly pick a value to delete
-			# TODO: create table metadata to dertermine the 
+			# TODO: create table metadata to dertermine the
 			#       time that values were added to the table
-			#       and remove the oldest value when limits 
+			#       and remove the oldest value when limits
 			#       have been exceeded
 			deathMark=choice(deathList)
 			# delete the value

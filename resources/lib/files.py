@@ -19,7 +19,7 @@ import os
 ########################################################################
 def loadFile(fileName):
 	'''
-	Read the file located at fileName. Return the contents of that 
+	Read the file located at fileName. Return the contents of that
 	file as a string if the file can be read. If the file can not
 	be read then return False.
 

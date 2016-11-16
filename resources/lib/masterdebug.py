@@ -18,7 +18,7 @@
 class init():
 	'''
 	A master debuging object to handle all debugging output
-	
+
 	If given a value of False debugging will be disabled.
 	e.g. "debug=masterDebug(False)"
 	'''

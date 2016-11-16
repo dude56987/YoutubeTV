@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ########################################################################
-# ATTRIBUTIONS 
+# ATTRIBUTIONS
 ########################################################################
 # - Initial code base adapted from template by Roman V. M.
 # - Icons are from Bromix's Kodi addon for Youtube
@@ -38,7 +38,7 @@ def findText(start,end,searchString):
 	'''
 	Grab text between start and end strings within the
 	searchString.
-	
+
 	return string
 	'''
 	# find the start index of the startstring
@@ -63,7 +63,7 @@ def saveFile(fileName,content):
 	basePath=xbmc.translatePath(basePath)
 	# if the base config directory does not exist
 	if os.path.exists(basePath) is False:
-		# create the base config path 
+		# create the base config path
 		thumbnail=subprocess.Popen(['mkdir', '-p',basePath])
 	# open the file to write
 	fileObject=open((basePath+fileName),'w')
@@ -75,7 +75,7 @@ def saveFile(fileName,content):
 def loadFile(fileName):
 	'''
 	Load a file with the path fileName.
-	
+
 	Returns the loaded file as a string or if the
 	file fails to load return False.
 
@@ -104,7 +104,7 @@ def loadFile(fileName):
 		return False
 def popup(header,content):
 	'''
-	Display a toaster style popup with the header of header and 
+	Display a toaster style popup with the header of header and
 	the content of content.
 	'''
 	dialog=xbmcgui.Dialog()
@@ -131,7 +131,7 @@ class YoutubeTV():
 		'''
 		Convert objects into strings and save in xbmc settings
 		for the addon.
-		
+
 		:return None
 		'''
 		# convert the new value into a string for storage
@@ -223,7 +223,7 @@ class YoutubeTV():
 		Checks timer on username to see if videos in that channel have been
 		refreshed within the past hour.
 		True means the timer says the video needs refreshed.
-		
+
 		:param delay:string
 		:param userName:string
 
@@ -293,7 +293,7 @@ class YoutubeTV():
 	def channelPlaylists(self,channelName,display=True):
 		'''
 		Grab the playlists for a channel with the username channelName.
-		
+
 		Returns a dict with keys that are the playlist ids.
 
 		:param channelName:string
@@ -306,7 +306,7 @@ class YoutubeTV():
 		# The playlist identifer holds a dict containing
 		# a title, thumbnail and array. The array holds a list
 		# of videos that can be played
-		# check timer for the channelPlaylists 
+		# check timer for the channelPlaylists
 		if self.checkTimer(channelName+':playlists','channelPlaylistDelay') is True:
 			# timer has rang, entry needs updated
 
@@ -332,7 +332,7 @@ class YoutubeTV():
 			for playlistId in paths:
 				# check if the cancel button was pressed
 				if progressDialog.iscanceled():
-					# cancel execution and delete timer value to pervent 
+					# cancel execution and delete timer value to pervent
 					# partially loaded list
 					self.timer.deleteValue(channelName+':playlists')
 					return
@@ -350,7 +350,7 @@ class YoutubeTV():
 					self.grabPlaylist(playlistId,channelName,display=None,firstOnly=True)
 				# grab the title of the playlist last being worked on
 				title=self.playlistCache.loadValue(channelName)[playlistId]['name']
-				# draw the progress onscreen 
+				# draw the progress onscreen
 				progressDialog.update(int(100*(progressCurrent/progressTotal)),title)
 				# increment the progress
 				progressCurrent+=1
@@ -361,7 +361,7 @@ class YoutubeTV():
 			listing=[]
 			# for each playlist in the playlist cache create a button
 			for key in self.playlistCache.loadValue(channelName).keys():
-				# grab the playlist id 
+				# grab the playlist id
 				playlistId=key
 				# set the title to the cached playlist title
 				title=self.playlistCache.loadValue(channelName)[key]['name']
@@ -384,11 +384,11 @@ class YoutubeTV():
 			xbmcplugin.endOfDirectory(_handle)
 	def grabPlaylist(self,playlistId,channelName,display=True,firstOnly=False):
 		'''
-		Grab the playlist items for a playlist "playlistId" that is a 
+		Grab the playlist items for a playlist "playlistId" that is a
 		playlist of the "channelName"
 
 		Returns an array of all the videos in a playlist
-		
+
 		:param playlistId:string
 		:param channelName:string
 		:param display:bool
@@ -462,7 +462,7 @@ class YoutubeTV():
 				title=item['name']
 				# set the thumbnail to the cached thumbnail
 				thumb=item['thumb']
-				# create a button to add the channel in the results	
+				# create a button to add the channel in the results
 				action=('play&video='+item['video'])
 				temp=createButton(action=action,\
 						title=title,\
@@ -478,12 +478,12 @@ class YoutubeTV():
 			xbmcplugin.endOfDirectory(_handle)
 	def grabChannelMetadata(self,channel):
 		'''
-		Takes a channel in the form of /user/username or /channel/hashvalue 
-		as a string. Downloads the webpage of the channel into the cache. 
+		Takes a channel in the form of /user/username or /channel/hashvalue
+		as a string. Downloads the webpage of the channel into the cache.
 		Then reads the channels metadata into the channelCache for later
 		use.
 		'''
-		# if the channel timer has expired or the channel does not 
+		# if the channel timer has expired or the channel does not
 		# yet exist in the cache we need to update the channel data
 		if self.checkTimer(channel+':meta','channelMetadataDelay') or\
 		channel not in self.channelCache.names:
@@ -513,7 +513,7 @@ class YoutubeTV():
 					# inside this string you will have two important variables
 					# - first src="" will have the icon you should use for the channel
 					# - second title="" will have the human readable channel title
-					# you should store these things in the cache somehow to use them 
+					# you should store these things in the cache somehow to use them
 					# when rendering the channels view
 					# grab text in src attribute between parathenesis
 					icon=tag.split('src="')
@@ -559,10 +559,10 @@ class YoutubeTV():
 		#"https://www.youtube.com/results?search_query="
 		searchResults=self.cacheWebpage("https://www.youtube.com/results?search_query="+searchString)
 		# to do next page you can add page=2 to the request
-		
+
 		# users can be found by scanning the search results for
 		#'href="/user/'userName'"'
-		searchResults=searchResults.split('"')	
+		searchResults=searchResults.split('"')
 		temp=[]
 		for link in searchResults:
 			link = link.replace('https://www.youtube.com','')
@@ -573,13 +573,13 @@ class YoutubeTV():
 				link=link[link.find('/user/'):]
 				# do not add duplicate entries found in the search
 				if link not in temp:
-					# add the link 
+					# add the link
 					temp.append(link)
 			elif '/channel/' in link:
 				link=link[link.find('/channel/'):]
 				# do not add duplicate entries found in the search
 				if link not in temp:
-					# add the link 
+					# add the link
 					temp.append(link)
 		# create and check the blocklist
 		blocklist=[]
@@ -617,7 +617,7 @@ class YoutubeTV():
 			title=self.channelCache.loadValue(channel)['title']
 			icon=self.channelCache.loadValue(channel)['icon']
 			fanArt=self.channelCache.loadValue(channel)['fanArt']
-			# create a button to add the channel in the results	
+			# create a button to add the channel in the results
 			temp=createButton(action=('addChannel&value='+channel),\
 					title=title,\
 					thumb=icon,\
@@ -768,7 +768,7 @@ class YoutubeTV():
 				# start the progress dialog
 				progressDialog.create(('Processing Video for '+userName),'Processing...')
 				# there are 25 videos on each page so we dont need to process this
-				# we multuply it by two and run progress for adding the videos to 
+				# we multuply it by two and run progress for adding the videos to
 				# the cache as well since this is half the work
 				progressTotal=float(25*2)
 				progressCurrent=0.0
@@ -776,7 +776,7 @@ class YoutubeTV():
 				for line in temp.split('<li class="channels-content-item'):
 					# check if the cancel button was pressed
 					if progressDialog.iscanceled():
-						# cancel execution and delete timer value to pervent 
+						# cancel execution and delete timer value to pervent
 						# partially loaded list
 						self.timer.deleteValue(userName)
 						return
@@ -817,7 +817,7 @@ class YoutubeTV():
 				for video in videos:
 					# check if the cancel button was pressed
 					if progressDialog.iscanceled():
-						# cancel execution and delete timer value to pervent 
+						# cancel execution and delete timer value to pervent
 						# partially loaded list
 						self.timer.deleteValue(userName)
 						return
@@ -828,7 +828,7 @@ class YoutubeTV():
 					# set user data in the cache
 					self.addVideo(userName,video)
 			elif downloadMethod=='youtube-dl':
-				# split page based on parathensis since we are looking for video play strings 
+				# split page based on parathensis since we are looking for video play strings
 				webpageText=temp.split('"')
 				# run though the split text array looking for watch strings in lines
 				for line in webpageText:
@@ -849,7 +849,7 @@ class YoutubeTV():
 				for video in videos:
 					# check if the cancel button was pressed
 					if progressDialog.iscanceled():
-						# cancel execution and delete timer value to pervent 
+						# cancel execution and delete timer value to pervent
 						# partially loaded list
 						self.timer.deleteValue(userName)
 						return
@@ -857,7 +857,7 @@ class YoutubeTV():
 					progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
 					progressCurrent+=1
 					# build a list of existing video urls in cache to check aginst
-					videoList=[] 
+					videoList=[]
 					#for videoDict in self.cache[userName]:
 					for videoDict in self.cache.loadValue(userName):
 						# add the url of each video in the cache already
@@ -965,7 +965,7 @@ session=YoutubeTV()
 # In a "real life" plugin you will need to get info and links to video files/streams
 # from some web-site or online service.
 ####################################################################
-# Read videos from text file where each line contains a username to 
+# Read videos from text file where each line contains a username to
 # load the cache into videos, needs reloaded upon changes
 VIDEOS = session.cache
 def get_categories():
@@ -1111,7 +1111,7 @@ def play_video(path):
 
 	:param path: str
 	"""
-	# if the previous two if statements dont hit then the path is a 
+	# if the previous two if statements dont hit then the path is a
 	# video path so modify the string and play it with the youtube plugin
 	###############
 	# the path to let videos be played by the youtube plugin
