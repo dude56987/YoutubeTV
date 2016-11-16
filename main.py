@@ -27,7 +27,7 @@ import xbmcgui
 import xbmcplugin
 import xbmcaddon
 ###################
-import urllib
+import urllib2
 import os
 import subprocess
 import datetime
@@ -642,8 +642,19 @@ class YoutubeTV():
 		# Finish creating a virtual folder.
 		xbmcplugin.endOfDirectory(_handle)
 	def grabWebpage(self,url):
+		'''
+		Download the url, strip line endings, and return a string.
+		'''
+		userAgent=addonObject.getSetting('userAgent')
+		header = {'User-Agent': userAgent,
+		'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+		'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+		'Accept-Encoding': 'none',
+		'Accept-Language': 'en-US,en;q=0.8',
+		'Connection': 'keep-alive'}
+		requestObject = urllib2.Request(url,headers=header)
 		# get the youtube users webpage
-		webpageText=urllib.urlopen(url)
+		webpageText=urllib2.urlopen(requestObject)
 		temp=''
 		for line in webpageText:
 			# mash everything into a string because they use code obscification
@@ -666,14 +677,9 @@ class YoutubeTV():
 		if self.checkTimer(url,'webpageRefreshDelay') or\
 		url not in self.webCache.names:
 			# get the youtube users webpage
-			webpageText=urllib.urlopen(url)
-			temp=''
-			for line in webpageText:
-				# mash everything into a string because they use code obscification
-				# also strip endlines to avoid garbage
-				temp+=(line.strip())
+			webpageText=self.grabWebpage(url)
 			# save this webpage in the cache
-			self.webCache.saveValue(url,temp)
+			self.webCache.saveValue(url,webpageText)
 		# return the cached url
 		return self.webCache.loadValue(url)
 	def addVideo(self,channel,newVideo):
