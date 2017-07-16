@@ -1219,8 +1219,6 @@ def router(paramstring):
 				session.addChannel(params['value'])
 			# popup notification
 			popup('YoutubeTV','Added Channel '+params['value'])
-			# refresh the view
-			list_categories()
 		elif params['action'] == 'backupChannels':
 			# backup channels
 			session.backup()
