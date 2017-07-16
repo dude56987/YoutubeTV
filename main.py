@@ -607,7 +607,8 @@ class YoutubeTV():
 		for channel in searchResults:
 			# check if the cancel button was pressed
 			if progressDialog.iscanceled():
-				return
+				# break the loop and load the channels found thus far
+				break
 			# update the progress dialog
 			progressDialog.update(int(100*(progressCurrent/progressTotal)),channel)
 			progressCurrent+=1
