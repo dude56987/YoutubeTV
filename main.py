@@ -657,7 +657,13 @@ class YoutubeTV():
 		'Connection': 'keep-alive'}
 		requestObject = urllib2.Request(url,headers=header)
 		# get the youtube users webpage
-		webpageText=urllib2.urlopen(requestObject)
+		try:
+			# try to download the webpage
+			webpageText=urllib2.urlopen(requestObject)
+		except:
+			popup('YoutubeTV', ('Failed to load webpage "'+str(url)+'"'))
+			# download failed, return blank string
+			return str()
 		temp=''
 		for line in webpageText:
 			# mash everything into a string because they use code obscification
