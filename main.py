@@ -536,6 +536,8 @@ class YoutubeTV():
 					tempChannelCache['fanArt']=fanArt
 					self.channelCache.saveValue(channel,tempChannelCache)
 	def searchChannel(self,searchString):
+		# clean the search string of spaces
+		cleanSearchString = searchString.replace(' ','+')
 		# grab the channel cache limit setting
 		channelLimit=addonObject.getSetting('channelLimit')
 		channelLimit=int(channelLimit)
@@ -557,7 +559,7 @@ class YoutubeTV():
 		# searches on youtube can be placed with the below string
 		# add your search terms at the end of the string
 		#"https://www.youtube.com/results?search_query="
-		searchResults=self.cacheWebpage("https://www.youtube.com/results?search_query="+searchString)
+		searchResults=self.cacheWebpage("https://www.youtube.com/results?search_query="+cleanSearchString)
 		# to do next page you can add page=2 to the request
 
 		# users can be found by scanning the search results for
