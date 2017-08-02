@@ -430,9 +430,12 @@ class YoutubeTV():
 					# set the thumbnail, add http to make the address resolve
 					if "http" not in thumb:
 						# if https is not in the path add it
-						temp['thumb']="http:"+thumb
+						temp['thumb']="https:"+thumb
 					else:
-						# otherwise add the path
+						# make sure the thumb uses https links
+						if "http://" in thumb:
+							thumb = thumb.replace('http://','https://')
+						# add the path
 						temp['thumb']=thumb
 					# set the genre to youtube
 					temp['genre']='youtube'
@@ -793,6 +796,10 @@ class YoutubeTV():
 					#findText(start,end,searchText)
 					video=findText('href="/watch?v=','"',line)
 					thumb=findText('src="','"',line)
+					# remove the post info in the tail of the url
+					# EXAMPLE: https://i.ytimg.com/vi/videoid/hqdefault.jpg?bunchOfYoutubeNonsense
+					# removing the post info makes the url resolve correctly
+					thumb=thumb.split('?')[0]
 					title=findText('dir="ltr" title="','"',line)
 					# convert all html entities in the title to unicode charcters
 					title=self.cleanText(title)
