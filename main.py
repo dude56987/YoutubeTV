@@ -117,7 +117,7 @@ class YoutubeTV():
 		This object loads up the youtubeTV session for
 		cache functionality and automated work.
 		'''
-		# create the cache for this session
+		# create the video cache for this session
 		self.cache=tables.table(_datadir+'cache/')
 		# cache timer
 		self.timer=tables.table(_datadir+'timer/')
@@ -270,8 +270,8 @@ class YoutubeTV():
 		inputText=inputText.decode('utf8')
 		okList='abcdefghijklmnopqrstuvwxyz'
 		okList+='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-		okList+="1234567890!@#$%^&*()-_+=[]{}/' "
-		okList+=':;"?.,><`~|'
+		okList+="1234567890!@#$%^&*()-_+=[]{}' "
+		okList+=';"?.,`~'
 		tempString=''
 		# ignore all characters not in the ok list
 		for character in inputText:
