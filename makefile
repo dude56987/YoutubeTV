@@ -68,6 +68,11 @@ reset:
 	rm -rv ~/.kodi/userdata/addon_data/plugin.video.youtubetv
 	# install the plugin again
 	make install
+test:
+	make reset || echo "no reset"
+	make install
+	kodi || echo "kodi was killed or crashed"
+	make log
 project-report: .git/*
 	which gitstats || sudo apt-get install gitstats --assume-yes
 	which gource || sudo apt-get install gource --assume-yes
