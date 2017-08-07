@@ -11,24 +11,24 @@ YoutubeTV is a Kodi addon that allows you to view Youtube channels.
 - You can adjust how much caching the plugin does in the settings.
 - License: [GPL v.3](http://www.gnu.org/copyleft/gpl.html)
 
-###[Download Latest Release](https://github.com/dude56987/YoutubeTV/releases)
+### [Download Latest Release](https://github.com/dude56987/YoutubeTV/releases)
 
-##Usage
+## Usage
 
-###Basic
+### Basic
 
 1. Open the plugin.
 2. Click the search button on the main menu.
 3. Type the channel you want to search for.
 4. Select the channel in the search results to add it.
 
-###Removing Channels
+### Removing Channels
 
 1. Highlight the channel in the main menu you want to remove
 2. Right click with the mouse OR highlight the channel and press c on the keyboard
 3. Select "Remove channelName" where channelName is the name of the highlighted channel
 
-###Reset Channels
+### Reset Channels
 
 1. Highlight the channel in the main menu you want to remove
 2. Right click with the mouse OR highlight the channel and press c on the keyboard
