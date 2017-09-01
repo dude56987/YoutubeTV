@@ -1,6 +1,6 @@
 #########################################################################
 # YoutubeTV Kodi addon for viewing Youtube channels
-# Copyright (C) 2016  Carl J Smith
+# Copyright (C) 2017  Carl J Smith
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -260,6 +260,21 @@ class YoutubeTV():
 			# save timer changes
 			#self.saveConfig('timer',self.timer)
 			return True
+	def cleanThumbnail(self, thumbnailPath):
+		# set the thumbnail, add http to make the address resolve
+		if "http" not in thumbnailPath:
+			# if https is not in the path add it
+			thumbnailPath = "https:"+thumbnailPath
+		else:
+			# make sure the thumb uses https links
+			if "http://" in thumbnailPath:
+				thumbnailPath = thumbnailPath.replace('http://','https://')
+		# remove the post info in the tail of the url
+		# EXAMPLE: https://i.ytimg.com/vi/videoid/hqdefault.jpg?bunchOfYoutubeNonsense
+		# removing the post info makes the url resolve correctly
+		thumbnailPath = thumbnailPath.split('?')[0]
+		# return the cleaned thumbnail URL
+		return thumbnailPath
 	def cleanText(self,inputText):
 		'''
 		Takes inputText and clean up the html special charcters.
@@ -427,16 +442,8 @@ class YoutubeTV():
 					temp['video']=video
 					# set the title
 					temp['name']=title
-					# set the thumbnail, add http to make the address resolve
-					if "http" not in thumb:
-						# if https is not in the path add it
-						temp['thumb']="https:"+thumb
-					else:
-						# make sure the thumb uses https links
-						if "http://" in thumb:
-							thumb = thumb.replace('http://','https://')
-						# add the path
-						temp['thumb']=thumb
+					# add the path of the thumbnail after parsing
+					temp['thumb'] = self.cleanThumbnail(thumb)
 					# set the genre to youtube
 					temp['genre']='youtube'
 					# add the found playlist items to the playlist array value
@@ -796,10 +803,6 @@ class YoutubeTV():
 					#findText(start,end,searchText)
 					video=findText('href="/watch?v=','"',line)
 					thumb=findText('src="','"',line)
-					# remove the post info in the tail of the url
-					# EXAMPLE: https://i.ytimg.com/vi/videoid/hqdefault.jpg?bunchOfYoutubeNonsense
-					# removing the post info makes the url resolve correctly
-					thumb=thumb.split('?')[0]
 					title=findText('dir="ltr" title="','"',line)
 					# convert all html entities in the title to unicode charcters
 					title=self.cleanText(title)
@@ -809,13 +812,8 @@ class YoutubeTV():
 					temp['video']=video
 					# set the title
 					temp['name']=title
-					# set the thumbnail, add http to make the address resolve
-					if "http" not in thumb:
-						# if https is not in the path add it
-						temp['thumb']="http:"+thumb
-					else:
-						# otherwise add the path
-						temp['thumb']=thumb
+					# cleanup the thumbnail link and store it in the dictionary
+					temp['thumb'] = self.cleanThumbnail(thumb)
 					# set the genre to youtube
 					temp['genre']='youtube'
 					# update the progress bar on screen and increment the counter
