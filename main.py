@@ -125,6 +125,8 @@ class YoutubeTV():
 		self.channelCache=tables.table(_datadir+'channelCache/')
 		# playlist cache
 		self.playlistCache=tables.table(_datadir+'playlistCache/')
+		# channel blocklist
+		self.channelBlocklist=tables.table(_datadir+'channelBlocklist/')
 		# webpage cache
 		self.webCache=tables.table(_datadir+'webCache/')
 	def saveConfig(self,config,newValue):
@@ -546,8 +548,21 @@ class YoutubeTV():
 					tempChannelCache['fanArt']=fanArt
 					self.channelCache.saveValue(channel,tempChannelCache)
 	def searchChannel(self,searchString):
+		'''
+		Cleanup the search string and scan the search url for channels
+		'''
 		# clean the search string of spaces
 		cleanSearchString = searchString.replace(' ','+')
+		# searches on youtube can be placed with the below string
+		# add your search terms at the end of the string
+		#"https://www.youtube.com/results?search_query="
+		searchURL="https://www.youtube.com/results?search_query="+cleanSearchString
+		# scan the search results for channels and display the results
+		self.scanForChannels(searchURL,searchString)
+	def scanForChannels(self,URL,progressTitle):
+		'''
+		Download and scan a url for links to channels
+		'''
 		# grab the channel cache limit setting
 		channelLimit=addonObject.getSetting('channelLimit')
 		channelLimit=int(channelLimit)
@@ -566,10 +581,8 @@ class YoutubeTV():
 						self.channelCache.deleteValue(channelTitle)
 						# decrement the delete counter
 						deleteCounter-=1
-		# searches on youtube can be placed with the below string
-		# add your search terms at the end of the string
-		#"https://www.youtube.com/results?search_query="
-		searchResults=self.cacheWebpage("https://www.youtube.com/results?search_query="+cleanSearchString)
+		# scan the url for links
+		searchResults=self.cacheWebpage(URL)
 		# to do next page you can add page=2 to the request
 
 		# users can be found by scanning the search results for
@@ -593,27 +606,78 @@ class YoutubeTV():
 				if link not in temp:
 					# add the link
 					temp.append(link)
-		# create and check the blocklist
-		blocklist=[]
-		blocklist.append('doubleclick.net')
-		blocklist.append('https://')
-		blocklist.append('http://')
-		blocklist.append('><')
-		blocklist.append('/?')
+		# load the existing blocklist
+		blocklist = self.channelBlocklist.loadValue('blocklist')
+		# if no blocklist exists create the default one
+		if blocklist == False:
+			# set a default blocklist value
+			blocklist = list()
+			blocklist.append('doubleclick.net')
+			blocklist.append('https://')
+			blocklist.append('http://')
+			blocklist.append('><')
+			blocklist.append('/?')
+			blocklist.append('/playlists')
+			blocklist.append('/channels')
+			blocklist.append('/about')
+			blocklist.append('/videos')
+			blocklist.append('/search')
+			blocklist.append('/featured')
+			# block the youtube default channels
+			blocklist.append('/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ')
+			blocklist.append('/channel/UC4R8DWoMoI7CAwX8_LjQHig')
+			blocklist.append('/channel/UCYfdidRxbB8Qhf0Nx7ioOYw')
+			blocklist.append('/channel/UCOpNcN46UbXVtpKMrmU4Abg')
+			blocklist.append('/channel/UCEgdi0XIXXZ-qJOFPf4JSKw')
+			blocklist.append('/channel/UCBR8-60-B28hp2BmDPdntcQ')
+			blocklist.append('/channel/UCzuqhhs6NWbgTzMuM09WKDQ')
+			blocklist.append('/channel/UCl8dMTqDrJQ0c8y23UBu4kQ')
+			blocklist.append('/channel/UClgRkhTL3_hImCAmdLfDE4g')
+			# save the newly created default blocklist
+			self.channelBlocklist.saveValue('blocklist',blocklist)
+		# show the blocklist in the debug
+		debug.add('blocklist values',blocklist)
 		# check for and remove blocklist items from searchResults
+		cleanList=[]
 		for link in temp:
+			debug.add('Uncleaned Link',link)
+			# if the link is not a real location convert it
+			tempSplit=link.split('/')
+			if len(tempSplit) > 3:
+				# join the first two elements and cut off the excess
+				link = '/'.join(tempSplit[:3])
+				debug.add('Cleaned Link',link)
+			# remove hanging url junk after "?", "<", and ">" characters if one exists in the url
+			for splitter in ['?','<','>']:
+				if splitter in link:
+					# cut off everything after the splitter
+						link = link.split('?')[0]
+			# check the links against the blocklist
+			debug.add('Scanning link "'+link+'" for conflicts with blocklist')
+			blockThisLink = False
 			for blockItem in blocklist:
-				if blockItem in link:
-					temp.remove(link)
+				# if the blocklist string is not in the link or is not the link itself
+				if blockItem in link or blockItem == link:
+					blockThisLink = True
+			if not blockThisLink:
+				debug.add('Link was not in blocklist')
+				# if link is not already in the list add it
+				if link not in cleanList:
+					cleanList.append(link)
+		# copy the cleanlist over the orignal
+		temp=list(set(cleanList))
+		# sort the list
+		temp.sort()
+		debug.add('cleanList of urls',cleanList)
 		# search results is now a array of usernames
 		# cut first 9 items because they are youtube menus
-		searchResults=temp[9:]
+		searchResults=temp
 		# we can take the usernames and use them to grab the user channel information
 		# listing for creating directory
 		listing=[]
 		# create the progress bar
 		progressDialog=xbmcgui.DialogProgress()
-		progressDialog.create(('Searching Channels for '+searchString),'Processing...')
+		progressDialog.create(('Searching Channels for '+progressTitle),'Processing...')
 		progressTotal=float(len(searchResults))
 		progressCurrent=0.0
 		for channel in searchResults:
@@ -627,26 +691,33 @@ class YoutubeTV():
 			# grab the channel metadata
 			self.grabChannelMetadata(channel)
 			# load up the channel values from the cache
-			title=self.channelCache.loadValue(channel)['title']
-			icon=self.channelCache.loadValue(channel)['icon']
-			fanArt=self.channelCache.loadValue(channel)['fanArt']
-			# create a button to add the channel in the results
-			temp=createButton(action=('addChannel&value='+channel),\
-					title=title,\
-					thumb=icon,\
-					icon=icon,\
-					fanart=fanArt)
-			# add context menu actions
-			contextItems=[]
-			# remove category button
-			contextItems.append((('Add Channel '+title),'RunPlugin('+_url+'?action=addChannel&value='+channel+')'))
-			contextItems.append((('End Search'),'RunPlugin('+_url+'?action=main)'))
-			# listing item is second item in a tuple, so we add the context menu
-			# to the listing item stored in temp
-			temp[1].addContextMenuItems(contextItems)
-			# add the item
-			listing.append(temp)
+			channelData=self.channelCache.loadValue(channel)
+			# if channeldata loads successfully
+			if channelData:
+				debug.add('Channel name', channel)
+				debug.add('Channel data', channelData)
+				title=channelData['title']
+				icon=channelData['icon']
+				fanArt=channelData['fanArt']
+				# create a button to add the channel in the results
+				temp=createButton(action=('addChannel&value='+channel),\
+						title=title,\
+						thumb=icon,\
+						icon=icon,\
+						fanart=fanArt)
+				# add context menu actions
+				contextItems=[]
+				# remove category button
+				contextItems.append((('Add Channel '+title),'RunPlugin('+_url+'?action=addChannel&value='+channel+')'))
+				contextItems.append((('Block Channel '+title),'RunPlugin('+_url+'?action=blockChannel&value='+channel+')'))
+				contextItems.append((('End Search'),'RunPlugin('+_url+'?action=main)'))
+				# listing item is second item in a tuple, so we add the context menu
+				# to the listing item stored in temp
+				temp[1].addContextMenuItems(contextItems)
+				# add the item
+				listing.append(temp)
 		# add items to listing
+		debug.add('Channel scan results', listing)
 		xbmcplugin.addDirectoryItems(_handle, listing, len(listing))
 		# Add a sort method for the virtual folder items (alphabetically, ignore articles)
 		#xbmcplugin.addSortMethod(_handle, xbmcplugin.SORT_METHOD_LABEL_IGNORE_THE)
@@ -974,6 +1045,10 @@ _handle = int(sys.argv[1])
 # load the youtube videos on that channel from
 addonObject=xbmcaddon.Addon(id=str(_id))
 session=YoutubeTV()
+# debug info
+debug.add('_handle',_handle)
+debug.add('_url',_url)
+debug.add('_basedir',_basedir)
 # Free sample videos are provided by www.vidsplay.com
 # Here we use a fixed set of properties simply for demonstrating purposes
 # In a "real life" plugin you will need to get info and links to video files/streams
@@ -1040,9 +1115,10 @@ def list_categories():
 		# add context menu actions
 		contextItems=[]
 		# remove category button
-		contextItems.append((('Remove '+title),'RunPlugin('+_url+'?action=removeChannel&value='+category+')'))
+		contextItems.append((('Remove '+title),'RunPlugin('+_url+'?action=removeChannel&value='+category+')',False))
 		# reset channel button
-		contextItems.append(('Reset Channel','RunPlugin('+_url+'?action=resetChannel&value='+category+')'))
+		contextItems.append(('Reset Channel','RunPlugin('+_url+'?action=resetChannel&value='+category+')',False))
+
 		list_item.addContextMenuItems(contextItems)
 		# Set graphics (thumbnail, fanart, banner, poster, landscape etc.) for the list item.
 		# Here we use the same image for all items for simplicity's sake.
@@ -1088,6 +1164,9 @@ def list_videos(category):
 	# create playlists button to link to youtube playlist functionality
 	listing.append(createButton(action=('channelPlaylists&channel='+category),\
 		title='Playlists',thumb=(_resdir+'/media/playlist.png'),icon='',fanart=''))
+	# show related channels button
+	listing.append(createButton(action=('relatedChannels&value='+category),\
+		title='Related Channels',thumb=(_basedir+'/icon.png'),icon='',fanart=''))
 	# Iterate through videos.
 	for video in videos:
 		# Create a list item with a text label and a thumbnail image.
@@ -1222,8 +1301,44 @@ def router(paramstring):
 			# check for blank strings and ignore them
 			if len(params['value']) > 0:
 				session.addChannel(params['value'])
-			# popup notification
-			popup('YoutubeTV','Added Channel '+params['value'])
+				# popup notification
+				popup('YoutubeTV','Added Channel '+params['value'])
+			else:
+				# error popup notification
+				popup('YoutubeTV','ERROR: No channel to add!')
+		elif params['action'] == 'resetBlocklist':
+			# reset the blocklist
+			session.channelBlocklist.reset()
+			popup('YoutubeTV','Blocklist reset')
+		elif params['action'] == 'unblockChannel':
+			# check for blank strings and ignore them
+			if len(params['value']) > 0:
+				# load the blocklist add the channel to the blocklist
+				tempBlocklist = session.channelBlocklist.loadValue('blocklist')
+				tempBlocklist.remove(params['value'])
+				session.channelBlocklist.saveValue('blocklist',tempBlocklist)
+				# popup notification
+				popup('YoutubeTV','Unblocked Channel '+params['value'])
+			else:
+				# error popup notification
+				popup('YoutubeTV','ERROR: No channel to unblock!')
+		elif params['action'] == 'blockChannel':
+			# check for blank strings and ignore them
+			if len(params['value']) > 0:
+				# load the blocklist add the channel to the blocklist
+				tempBlocklist = session.channelBlocklist.loadValue('blocklist')
+				tempBlocklist.append(params['value'])
+				session.channelBlocklist.saveValue('blocklist',tempBlocklist)
+				# popup notification
+				popup('YoutubeTV','Blocked Channel '+params['value'])
+			else:
+				# error popup notification
+				popup('YoutubeTV','ERROR: No channel to block!')
+		elif params['action'] == 'resetChannels':
+			session.cache.reset()
+			popup('YoutubeTV','All channels removed')
+			# refresh the view
+			list_categories()
 		elif params['action'] == 'backupChannels':
 			# backup channels
 			session.backup()
@@ -1232,6 +1347,12 @@ def router(paramstring):
 			session.restore()
 			# refresh the view
 			list_categories()
+		elif params['action'] == 'relatedChannels':
+			channel = str(params['value'])
+			debug.add("searching relatedChannels to",channel)
+			channelURL="https://www.youtube.com"+channel
+			debug.add('created channel URL',channelURL)
+			session.scanForChannels(channelURL,channel)
 		elif params['action'] == 'searchChannel':
 			debug.add('addChannel invoked, creating dialog')
 			# the item is a button to display a input dialog
