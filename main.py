@@ -1089,6 +1089,22 @@ def list_categories():
 	"""
 	# Get video categories
 	categories = get_categories()
+	# sort the categories by the name listed
+	sortedNames=list()
+	nameIndex=dict()
+	for channel in categories:
+		# store the name of the channel
+		tempName = session.channelCache.loadValue(channel)['title']
+		# create a link in the name index
+		nameIndex[tempName]=channel
+		# add the name to the list of names to be sorted
+		sortedNames.append(tempName)
+	sortedNames = list(set(sortedNames))
+	sortedNames.sort()
+	# reset categories and convert the sorted list back using the name index
+	categories = list()
+	for name in sortedNames:
+		categories.append(nameIndex[name])
 	# Create a list for our items.
 	listing = []
 	# create a search channel button in the channels view
