@@ -1093,6 +1093,9 @@ def list_categories():
 	sortedNames=list()
 	nameIndex=dict()
 	for channel in categories:
+		# remove "the" from the title for the purposes of sorting
+		channel=channel.replace('The ','')
+		channel=channel.replace('the ','')
 		# store the name of the channel
 		tempName = session.channelCache.loadValue(channel)['title']
 		# create a link in the name index
