@@ -1120,6 +1120,8 @@ def list_categories():
 	searchButton[1].addContextMenuItems(contextItems)
 	# add the search button to the listing
 	listing.append(searchButton)
+	colorFlipper = 0
+	currentFlip = ''
 	# Iterate through categories
 	for category in categories:
 		# load up the channel cache data
@@ -1128,7 +1130,25 @@ def list_categories():
 		if len(category)==0:
 			return
 		# store video title for use in this scope
-		title=tempChannelCache['title']
+		title = tempChannelCache['title']
+		# if colored labels are enabled, bool values are returned as strings
+		if addonObject.getSetting('coloredLabels') == 'true':
+			# increment the colorFlipper
+			if title[0] != currentFlip:
+				# update the current flip
+				currentFlip = title[0]
+				# increment the colorFlipper
+				colorFlipper += 1
+			# reset the colorFlipper if it gets to high
+			if colorFlipper > 2:
+				colorFlipper = 0
+			# Add colored labels to help distinguish between channels
+			if colorFlipper == 0:
+				title = "[B][COLOR red]" + title + "[/COLOR][/B]"
+			elif colorFlipper == 1:
+				title = "[B][COLOR green]" + title + "[/COLOR][/B]"
+			elif colorFlipper == 2:
+				title = "[B][COLOR blue]" + title + "[/COLOR][/B]"
 		# Create a list item with a text label and a thumbnail image.
 		list_item = xbmcgui.ListItem(label=title)
 		# add context menu actions

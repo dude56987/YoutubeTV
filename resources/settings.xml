@@ -16,6 +16,9 @@
 	<category label='Url Requests'>
 		<setting id='userAgent' type='text' default='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11' label='User Agent String'/>
 	</category>
+	<category label='Interface'>
+		<setting id='coloredLabels' type='bool' default='true' label='Color code channel labels'/>
+	</category>
 	<category label='Backup/Restore'>
 		<setting label='Backup Channels' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=backupChannels)'/>
 		<setting label='Restore Channels' type='action' action='RunPlugin(Plugin://plugin.video.youtubetv/?action=restoreChannels)'/>
