@@ -1093,15 +1093,17 @@ def list_categories():
 	sortedNames=list()
 	nameIndex=dict()
 	for channel in categories:
-		# remove "the" from the title for the purposes of sorting
-		channel=channel.replace('The ','')
-		channel=channel.replace('the ','')
 		# store the name of the channel
 		tempName = session.channelCache.loadValue(channel)['title']
+		# sort without consideration for capitalization
+		tempName = tempName.lower()
+		# remove "the" from the title for the purposes of sorting
+		tempName = tempName.replace('the ','')
 		# create a link in the name index
-		nameIndex[tempName]=channel
+		nameIndex[tempName] = channel
 		# add the name to the list of names to be sorted
 		sortedNames.append(tempName)
+	# remove duplicates by converting to a set, and convert back to a list for sorting
 	sortedNames = list(set(sortedNames))
 	sortedNames.sort()
 	# reset categories and convert the sorted list back using the name index
@@ -1131,12 +1133,14 @@ def list_categories():
 			return
 		# store video title for use in this scope
 		title = tempChannelCache['title']
+		sortTitle = title.lower()
+		sortTitle = sortTitle.replace('the ','')
 		# if colored labels are enabled, bool values are returned as strings
 		if addonObject.getSetting('coloredLabels') == 'true':
 			# increment the colorFlipper
-			if title[0] != currentFlip:
+			if sortTitle[0] != currentFlip:
 				# update the current flip
-				currentFlip = title[0]
+				currentFlip = sortTitle[0]
 				# increment the colorFlipper
 				colorFlipper += 1
 			# reset the colorFlipper if it gets to high
