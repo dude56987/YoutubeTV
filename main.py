@@ -857,9 +857,68 @@ class YoutubeTV():
 			temp=self.cacheWebpage("https://www.youtube.com"+str(userName)+"/videos")
 			# create an array to hold the video watch strings
 			videos=[]
-			downloadMethod='youtubetv'
+			youtube_dl=addonObject.getSetting('youtube_dl_metadata')
 			#we have two different methods of grabing metadata
-			if downloadMethod=='youtubetv':
+			if youtube_dl != 'false':
+				# split page based on parathensis since we are looking for video play strings
+				webpageText=temp.split('"')
+				# run though the split text array looking for watch strings in lines
+				for line in webpageText:
+					if '/watch?v=' in line:
+						# create real youtube url from found strings
+						temp='https://youtube.com'+str(line)
+						# avoid duplicate entries
+						if temp not in videos:
+							# add video if it does not exist in the file already
+							videos.append(temp)
+				# start the progress dialog
+				progressDialog.create(('Adding Videos to '+userName),'Processing...')
+				progressTotal=float(len(videos))
+				progressCurrent=0.0
+				# reverse the order of videos in order to give correct timestamps
+				videos.reverse()
+				# generate the data for drawing videos in kodi menu
+				for video in videos:
+					# check if the cancel button was pressed
+					if progressDialog.iscanceled():
+						# cancel execution and delete timer value to pervent
+						# partially loaded list
+						self.timer.deleteValue(userName)
+						return
+					# update the progress bar on screen and increment the counter
+					progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
+					progressCurrent+=1
+					# build a list of existing video urls in cache to check aginst
+					videoList=[]
+					#for videoDict in self.cache[userName]:
+					for videoDict in self.cache.loadValue(userName):
+						# add the url of each video in the cache already
+						# to the videoList array for checking
+						videoList.append(videoDict['video'])
+					# check if the video already exists in the video cache by
+					# referencing it against the previously create videoList
+					if video not in videoList:
+						# begin building dict to add to the category array
+						temp={}
+						# set the video url to the found url
+						temp['video']=video
+						# find the video title using youtube-dl
+						title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
+						title=title.communicate()[0].strip()
+						# set the title
+						temp['name']=title
+						# get the thumbnail url
+						thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
+						thumbnail=thumbnail.communicate()[0].strip()
+						# set the thumbnail
+						temp['thumb']=thumbnail
+						# set the genre to youtube
+						temp['genre']='youtube'
+						# add a time to the element for the purposes of sorting
+						temp['foundTime']=datetime.datetime.now()
+						# set user data in the cache
+						self.addVideo(userName,temp)
+			else:
 				# search the videos without youtube-dl
 				# search for the list of videos in the webpage
 				temp=findText('<ul id="channels-browse-content-grid','<button class="yt-lockup-dismissable"></div>',temp)
@@ -920,65 +979,6 @@ class YoutubeTV():
 					progressCurrent+=1
 					# set user data in the cache
 					self.addVideo(userName,video)
-			elif downloadMethod=='youtube-dl':
-				# split page based on parathensis since we are looking for video play strings
-				webpageText=temp.split('"')
-				# run though the split text array looking for watch strings in lines
-				for line in webpageText:
-					if '/watch?v=' in line:
-						# create real youtube url from found strings
-						temp='https://youtube.com'+str(line)
-						# avoid duplicate entries
-						if temp not in videos:
-							# add video if it does not exist in the file already
-							videos.append(temp)
-				# start the progress dialog
-				progressDialog.create(('Adding Videos to '+userName),'Processing...')
-				progressTotal=float(len(videos))
-				progressCurrent=0.0
-				# reverse the order of videos in order to give correct timestamps
-				videos.reverse()
-				# generate the data for drawing videos in kodi menu
-				for video in videos:
-					# check if the cancel button was pressed
-					if progressDialog.iscanceled():
-						# cancel execution and delete timer value to pervent
-						# partially loaded list
-						self.timer.deleteValue(userName)
-						return
-					# update the progress bar on screen and increment the counter
-					progressDialog.update(int(100*(progressCurrent/progressTotal)),video)
-					progressCurrent+=1
-					# build a list of existing video urls in cache to check aginst
-					videoList=[]
-					#for videoDict in self.cache[userName]:
-					for videoDict in self.cache.loadValue(userName):
-						# add the url of each video in the cache already
-						# to the videoList array for checking
-						videoList.append(videoDict['video'])
-					# check if the video already exists in the video cache by
-					# referencing it against the previously create videoList
-					if video not in videoList:
-						# begin building dict to add to the category array
-						temp={}
-						# set the video url to the found url
-						temp['video']=video
-						# find the video title using youtube-dl
-						title=subprocess.Popen(['youtube-dl', '--get-title',str(video)],stdout=subprocess.PIPE)
-						title=title.communicate()[0].strip()
-						# set the title
-						temp['name']=title
-						# get the thumbnail url
-						thumbnail=subprocess.Popen(['youtube-dl', '--get-thumbnail',str(video)],stdout=subprocess.PIPE)
-						thumbnail=thumbnail.communicate()[0].strip()
-						# set the thumbnail
-						temp['thumb']=thumbnail
-						# set the genre to youtube
-						temp['genre']='youtube'
-						# add a time to the element for the purposes of sorting
-						temp['foundTime']=datetime.datetime.now()
-						# set user data in the cache
-						self.addVideo(userName,temp)
 			# load up the video limit from settings
 			videoLimit=addonObject.getSetting('videoLimit')
 			# cast videolimit from a string to a int
@@ -1268,17 +1268,23 @@ def play_video(path):
 
 	:param path: str
 	"""
-	# if the previous two if statements dont hit then the path is a
-	# video path so modify the string and play it with the youtube plugin
-	###############
-	# the path to let videos be played by the youtube plugin
-	youtubePath='plugin://plugin.video.youtube/?action=play_video&videoid='
-	# remove the full webaddress to make youtube plugin work correctly
-	path=path.replace('https://youtube.com/watch?v=','')
-	# also check for partial webaddresses we only need the video id
-	path=path.replace('watch?v=','')
-	# add youtube path to path to make videos play with the kodi youtube plugin
-	path=youtubePath+path
+	youtube_dl=addonObject.getSetting('youtube_dl_playback')
+	if youtube_dl != 'false':
+		# use youtube-dl with a webm file to get a single video stream, otherwise audio and video links will be seprate
+		youtube_dl_process=subprocess.Popen(['youtube-dl', '-f', 'webm', '--get-url', str(path)],stdout=subprocess.PIPE)
+		path=youtube_dl_process.communicate()[0].strip()
+	else:
+		# if the previous two if statements dont hit then the path is a
+		# video path so modify the string and play it with the youtube plugin
+		###############
+		# the path to let videos be played by the youtube plugin
+		youtubePath='plugin://plugin.video.youtube/?action=play_video&videoid='
+		# remove the full webaddress to make youtube plugin work correctly
+		path=path.replace('https://youtube.com/watch?v=','')
+		# also check for partial webaddresses we only need the video id
+		path=path.replace('watch?v=','')
+		# add youtube path to path to make videos play with the kodi youtube plugin
+		path=youtubePath+path
 	# Create a playable item with a path to play.
 	play_item = xbmcgui.ListItem(path=path)
 	# Pass the item to the Kodi player.
