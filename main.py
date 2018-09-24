@@ -1,6 +1,6 @@
 #########################################################################
 # YoutubeTV Kodi addon for viewing Youtube channels
-# Copyright (C) 2017  Carl J Smith
+# Copyright (C) 2018  Carl J Smith
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -54,23 +54,28 @@ def findText(start,end,searchString):
 ################################################################################
 def saveFile(fileName,content):
 	'''
-	Save a file with the path fileName containing the content content.
+	Write the fileName path as a file containing the contentToWrite
+	string value.
 
-	:return None
+	:return bool
 	'''
-	# create the basepath using special protocol
-	basePath=('special://userdata/addon_data/'+_id+'/')
-	basePath=xbmc.translatePath(basePath)
-	# if the base config directory does not exist
-	if os.path.exists(basePath) is False:
-		# create the base config path
-		thumbnail=subprocess.Popen(['mkdir', '-p',basePath])
-	# open the file to write
-	fileObject=open((basePath+fileName),'w')
-	# write file content
-	fileObject.write(content)
-	# close the file
-	fileObject.close()
+	# figure out the file path
+	filepath = fileName.split(os.sep)
+	filepath.pop()
+	filepath = os.sep.join(filepath)
+	# check if path exists
+	if os.path.exists(filepath):
+		try:
+			fileObject = open(fileName,'w')
+			fileObject.write(content)
+			fileObject.close()
+			return True
+		except:
+			print('Failed to write file:'+fileName)
+			return False
+	else:
+		print('Failed to write file, path:'+filepath+'does not exist!')
+		return False
 ################################################################################
 def loadFile(fileName):
 	'''
@@ -538,6 +543,9 @@ class YoutubeTV():
 					title=tag.split('title="')
 					title=title[1].split('"')
 					title=title[0]
+					# if the channel has no title it might have been banned
+					if title == '':
+						title = "Banned or Unnamed"
 					# clean html entities from title
 					title=self.cleanText(title)
 					# add channel information to the channel cache
@@ -988,8 +996,13 @@ class YoutubeTV():
 			self.cache.saveValue(userName,tempVideoCache)
 	def backup(self):
 		# backup the channels saved in the addon
-		tempTable=tables.table(_datadir+'backup/')
-		tempTable.saveValue('backup',self.cache.names)
+		names = self.cache.names
+		tempChannels = ''
+		for name in names:
+			if name != '':
+				tempChannels += name+'\n'
+		debug.add("tempChannels",tempChannels)
+		saveFile((_datadir+'backupYoutubeTv.txt'),tempChannels)
 		popup('YoutubeTV','Backup Complete!')
 	def restore(self):
 		# clear out caches prior to restore
@@ -998,17 +1011,21 @@ class YoutubeTV():
 		self.cache.reset()
 		self.timer.reset()
 		# restore the channels saved from the last backup
-		tempTable=tables.table(_datadir+'backup/')
-		channels=tempTable.loadValue('backup')
-		# refresh all channel data for channels
-		for channel in channels:
-			# grab each channels metadata and store it
-			self.grabChannelMetadata(channel)
-			# save all channels into the cache
-			self.cache.saveValue(channel,list())
-		# refresh the view and load the popup
-		xbmc.executebuiltin('container.Update('+_url+',replace)')
-		popup('YoutubeTV','Restore of backup Complete!')
+		channels = loadFile('backupYoutubeTv.txt').split('\n')
+		if channels != False:
+			# refresh all channel data for channels
+			for channel in channels:
+				# if the channel is not blank
+				if channel != '':
+					# grab each channels metadata and store it
+					self.grabChannelMetadata(channel)
+					# save all channels into the cache
+					self.cache.saveValue(channel,list())
+			# refresh the view and load the popup
+			xbmc.executebuiltin('container.Update('+_url+',replace)')
+			popup('YoutubeTV','Restore of backup Complete!')
+		else:
+			popup('YoutubeTV','Could not load any backup!')
 ################################################################################
 def createButton(action='',title='default',thumb='default',icon='default',fanart='default',is_folder=True):
 	'''Create a list item to be created that is used as a menu button'''
@@ -1093,16 +1110,19 @@ def list_categories():
 	sortedNames=list()
 	nameIndex=dict()
 	for channel in categories:
-		# store the name of the channel
-		tempName = session.channelCache.loadValue(channel)['title']
-		# sort without consideration for capitalization
-		tempName = tempName.lower()
-		# remove "the" from the title for the purposes of sorting
-		tempName = tempName.replace('the ','')
-		# create a link in the name index
-		nameIndex[tempName] = channel
-		# add the name to the list of names to be sorted
-		sortedNames.append(tempName)
+		if channel != False:
+			# store the name of the channel
+			tempName = session.channelCache.loadValue(channel)['title']
+			# sort without consideration for capitalization
+			tempName = tempName.lower()
+			# remove "the" from the title for the purposes of sorting
+			tempName = tempName.replace('the ','')
+			# create a link in the name index
+			nameIndex[tempName] = channel
+			# add the name to the list of names to be sorted
+			sortedNames.append(tempName)
+		else:
+			popup('YoutubeTV',('ERROR: Could not load channel "'+channel+'"!'))
 	# remove duplicates by converting to a set, and convert back to a list for sorting
 	sortedNames = list(set(sortedNames))
 	sortedNames.sort()
@@ -1138,21 +1158,22 @@ def list_categories():
 		# if colored labels are enabled, bool values are returned as strings
 		if addonObject.getSetting('coloredLabels') == 'true':
 			# increment the colorFlipper
-			if sortTitle[0] != currentFlip:
-				# update the current flip
-				currentFlip = sortTitle[0]
-				# increment the colorFlipper
-				colorFlipper += 1
-			# reset the colorFlipper if it gets to high
-			if colorFlipper > 2:
-				colorFlipper = 0
-			# Add colored labels to help distinguish between channels
-			if colorFlipper == 0:
-				title = "[B][COLOR red]" + title + "[/COLOR][/B]"
-			elif colorFlipper == 1:
-				title = "[B][COLOR green]" + title + "[/COLOR][/B]"
-			elif colorFlipper == 2:
-				title = "[B][COLOR blue]" + title + "[/COLOR][/B]"
+			if len(sortTitle) > 0:
+				if sortTitle[0] != currentFlip:
+					# update the current flip
+					currentFlip = sortTitle[0]
+					# increment the colorFlipper
+					colorFlipper += 1
+				# reset the colorFlipper if it gets to high
+				if colorFlipper > 2:
+					colorFlipper = 0
+				# Add colored labels to help distinguish between channels
+				if colorFlipper == 0:
+					title = "[B][COLOR red]" + title + "[/COLOR][/B]"
+				elif colorFlipper == 1:
+					title = "[B][COLOR green]" + title + "[/COLOR][/B]"
+				elif colorFlipper == 2:
+					title = "[B][COLOR blue]" + title + "[/COLOR][/B]"
 		# Create a list item with a text label and a thumbnail image.
 		list_item = xbmcgui.ListItem(label=title)
 		# add context menu actions
